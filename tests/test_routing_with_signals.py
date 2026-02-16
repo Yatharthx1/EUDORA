@@ -1,4 +1,5 @@
-from backend.routing.graph_builder import build_graph
+from backend.routing.graph_builder import build_graph 
+
 from backend.routing.routing_engine import compute_route
 from backend.signal.signal_model import SignalModel
 
@@ -77,3 +78,14 @@ for node in route:
 
 m.save("route_visual_debug.html")
 print("Route visualization saved.")
+
+
+for i in range(len(route) - 1):
+    u = route[i]
+    v = route[i+1]
+
+    edge_data = G.get_edge_data(u, v)
+    first_edge = list(edge_data.values())[0]
+
+    road_name = first_edge.get("name", "Unnamed")
+    print(road_name)

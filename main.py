@@ -50,4 +50,3 @@ for i in range(len(route) - 1):
 
 print(f"Total distance (km): {total_distance / 1000:.2f}")
 print(f"Estimated travel time (min): {total_time:.2f}")
-ox.plot_graph(G)
