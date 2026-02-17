@@ -43,7 +43,7 @@ class SignalModel:
         clustered_nodes = []
         used = set()
 
-        threshold = 12  # meters
+        threshold = 13.5  # meters
 
         for node in raw_signal_nodes:
             if node in used:
