@@ -1,8 +1,4 @@
-Good. Keep it neutral and clean.
 
-Here’s a short README without any project name drama.
-
----
 
 # Smart Traffic Routing System
 
@@ -22,6 +18,5 @@ We aim to extend the routing engine by introducing two additional path types:
 
 The system is fully simulation-based and does not control real-world traffic infrastructure.
 
----
 
-Clean. Professional. No unnecessary noise.
+
