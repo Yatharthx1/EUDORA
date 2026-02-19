@@ -1199,7 +1199,82 @@
       "yellow_time": 5,
       "red_time": 75,
       "start_reference": "08:30:00"
-    }
+    },
+         "manual_Robot_square": {
+      "lat": 22.741228642429483,       
+      "lng":  75.90245776116019 ,
+      "source": "manual",
+      "cycle_time": 150,
+      "green_time": 70,
+      "yellow_time": 5,
+      "red_time": 75,
+      "start_reference": "08:30:00"
+    },
+         "manual_Khajarana_square": {
+      "lat": 22.731671470206212,       
+      "lng":  75.90230938200521 ,
+      "source": "manual",
+      "cycle_time": 150,
+      "green_time": 70,
+      "yellow_time": 5,
+      "red_time": 75,
+      "start_reference": "08:30:00"
+    },
+         "manual_Tower_square": {
+      "lat": 22.69799238674275,       
+      "lng":  75.86474146764428,
+      "source": "manual",
+      "cycle_time": 150,
+      "green_time": 70,
+      "yellow_time": 5,
+      "red_time": 75,
+      "start_reference": "08:30:00"
+    },
+         "manual_Shivaji_square": {
+      "lat": 22.789727997571266,      
+      "lng":  75.84734742188077 ,
+      "source": "manual",
+      "cycle_time": 150,
+      "green_time": 70,
+      "yellow_time": 5,
+      "red_time": 75,
+      "start_reference": "08:30:00"
+    },   
+         "manual_Random4_square": {
+      "lat": 22.766798865609733,       
+      "lng":  75.90030368005101 ,
+      "source": "manual",
+      "cycle_time": 150,
+      "green_time": 70,
+      "yellow_time": 5,
+      "red_time": 75,
+      "start_reference": "08:30:00"
+    },   
+        "manual_Niranjan_square": {
+      "lat": 22.771642734538045,       
+      "lng":  75.90177181695495,
+      "source": "manual",
+      "cycle_time": 150,
+      "green_time": 70,
+      "yellow_time": 5,
+      "red_time": 75,
+      "start_reference": "08:30:00"
+    },   
+             "manual_Random5_square": {
+      "lat": 22.727724812964645,        
+      "lng":  75.86289188616563,
+      "source": "manual",
+      "cycle_time": 150,
+      "green_time": 70,
+      "yellow_time": 5,
+      "red_time": 75,
+      "start_reference": "08:30:00"
+    }   
+
+
+
+
+
 
     }
 }

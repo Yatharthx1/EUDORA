@@ -12,6 +12,9 @@ def visualize_all_signals(
         data = json.load(f)
 
     signals = data["signals"]
+    for signal in signals:
+        print(signal)
+        
 
     if not signals:
         print("No signals found.")
