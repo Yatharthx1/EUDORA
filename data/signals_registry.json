@@ -1,0 +1,1035 @@
+{
+    "signals": {
+        "osm_1": {
+            "lat": 22.7107821,
+            "lng": 75.8855046,
+            "source": "osm",
+            "cycle_time": 120,
+            "green_time": 55,
+            "yellow_time": 5,
+            "red_time": 60,
+            "start_reference": "09:00:00"
+        },
+        "osm_2": {
+            "lat": 22.7112774,
+            "lng": 75.8833206,
+            "source": "osm",
+            "cycle_time": 120,
+            "green_time": 55,
+            "yellow_time": 5,
+            "red_time": 60,
+            "start_reference": "09:00:00"
+        },
+        "osm_3": {
+            "lat": 22.7116257,
+            "lng": 75.883235,
+            "source": "osm",
+            "cycle_time": 120,
+            "green_time": 55,
+            "yellow_time": 5,
+            "red_time": 60,
+            "start_reference": "09:00:00"
+        },
+        "osm_4": {
+            "lat": 22.7197459,
+            "lng": 75.9063794,
+            "source": "osm",
+            "cycle_time": 120,
+            "green_time": 55,
+            "yellow_time": 5,
+            "red_time": 60,
+            "start_reference": "09:00:00"
+        },
+        "osm_5": {
+            "lat": 22.7199192,
+            "lng": 75.9063923,
+            "source": "osm",
+            "cycle_time": 120,
+            "green_time": 55,
+            "yellow_time": 5,
+            "red_time": 60,
+            "start_reference": "09:00:00"
+        },
+        "osm_6": {
+            "lat": 22.7198414,
+            "lng": 75.9059461,
+            "source": "osm",
+            "cycle_time": 120,
+            "green_time": 55,
+            "yellow_time": 5,
+            "red_time": 60,
+            "start_reference": "09:00:00"
+        },
+        "osm_7": {
+            "lat": 22.7199488,
+            "lng": 75.9059749,
+            "source": "osm",
+            "cycle_time": 120,
+            "green_time": 55,
+            "yellow_time": 5,
+            "red_time": 60,
+            "start_reference": "09:00:00"
+        },
+        "osm_8": {
+            "lat": 22.7236227,
+            "lng": 75.8866752,
+            "source": "osm",
+            "cycle_time": 120,
+            "green_time": 55,
+            "yellow_time": 5,
+            "red_time": 60,
+            "start_reference": "09:00:00"
+        },
+        "osm_9": {
+            "lat": 22.7236752,
+            "lng": 75.8865759,
+            "source": "osm",
+            "cycle_time": 120,
+            "green_time": 55,
+            "yellow_time": 5,
+            "red_time": 60,
+            "start_reference": "09:00:00"
+        },
+        "osm_10": {
+            "lat": 22.7235834,
+            "lng": 75.886747,
+            "source": "osm",
+            "cycle_time": 120,
+            "green_time": 55,
+            "yellow_time": 5,
+            "red_time": 60,
+            "start_reference": "09:00:00"
+        },
+        "osm_11": {
+            "lat": 22.723767,
+            "lng": 75.8868574,
+            "source": "osm",
+            "cycle_time": 120,
+            "green_time": 55,
+            "yellow_time": 5,
+            "red_time": 60,
+            "start_reference": "09:00:00"
+        },
+        "osm_12": {
+            "lat": 22.7238563,
+            "lng": 75.8866884,
+            "source": "osm",
+            "cycle_time": 120,
+            "green_time": 55,
+            "yellow_time": 5,
+            "red_time": 60,
+            "start_reference": "09:00:00"
+        },
+        "osm_13": {
+            "lat": 22.7254037,
+            "lng": 75.8872525,
+            "source": "osm",
+            "cycle_time": 120,
+            "green_time": 55,
+            "yellow_time": 5,
+            "red_time": 60,
+            "start_reference": "09:00:00"
+        },
+        "osm_14": {
+            "lat": 22.7315267,
+            "lng": 75.9021439,
+            "source": "osm",
+            "cycle_time": 120,
+            "green_time": 55,
+            "yellow_time": 5,
+            "red_time": 60,
+            "start_reference": "09:00:00"
+        },
+        "osm_15": {
+            "lat": 22.7318321,
+            "lng": 75.9024578,
+            "source": "osm",
+            "cycle_time": 120,
+            "green_time": 55,
+            "yellow_time": 5,
+            "red_time": 60,
+            "start_reference": "09:00:00"
+        },
+        "osm_16": {
+            "lat": 22.7317384,
+            "lng": 75.9020355,
+            "source": "osm",
+            "cycle_time": 120,
+            "green_time": 55,
+            "yellow_time": 5,
+            "red_time": 60,
+            "start_reference": "09:00:00"
+        },
+        "osm_17": {
+            "lat": 22.7335263,
+            "lng": 75.8901777,
+            "source": "osm",
+            "cycle_time": 120,
+            "green_time": 55,
+            "yellow_time": 5,
+            "red_time": 60,
+            "start_reference": "09:00:00"
+        },
+        "osm_18": {
+            "lat": 22.7335898,
+            "lng": 75.8899987,
+            "source": "osm",
+            "cycle_time": 120,
+            "green_time": 55,
+            "yellow_time": 5,
+            "red_time": 60,
+            "start_reference": "09:00:00"
+        },
+        "osm_19": {
+            "lat": 22.7337126,
+            "lng": 75.8900504,
+            "source": "osm",
+            "cycle_time": 120,
+            "green_time": 55,
+            "yellow_time": 5,
+            "red_time": 60,
+            "start_reference": "09:00:00"
+        },
+        "osm_20": {
+            "lat": 22.7095248,
+            "lng": 75.8907854,
+            "source": "osm",
+            "cycle_time": 120,
+            "green_time": 55,
+            "yellow_time": 5,
+            "red_time": 60,
+            "start_reference": "09:00:00"
+        },
+        "osm_21": {
+            "lat": 22.7096239,
+            "lng": 75.8907504,
+            "source": "osm",
+            "cycle_time": 120,
+            "green_time": 55,
+            "yellow_time": 5,
+            "red_time": 60,
+            "start_reference": "09:00:00"
+        },
+        "osm_22": {
+            "lat": 22.7109025,
+            "lng": 75.8854887,
+            "source": "osm",
+            "cycle_time": 120,
+            "green_time": 55,
+            "yellow_time": 5,
+            "red_time": 60,
+            "start_reference": "09:00:00"
+        },
+        "osm_23": {
+            "lat": 22.718423,
+            "lng": 75.8843956,
+            "source": "osm",
+            "cycle_time": 120,
+            "green_time": 55,
+            "yellow_time": 5,
+            "red_time": 60,
+            "start_reference": "09:00:00"
+        },
+        "osm_24": {
+            "lat": 22.7112747,
+            "lng": 75.8827602,
+            "source": "osm",
+            "cycle_time": 120,
+            "green_time": 55,
+            "yellow_time": 5,
+            "red_time": 60,
+            "start_reference": "09:00:00"
+        },
+        "osm_25": {
+            "lat": 22.6988814,
+            "lng": 75.8777141,
+            "source": "osm",
+            "cycle_time": 120,
+            "green_time": 55,
+            "yellow_time": 5,
+            "red_time": 60,
+            "start_reference": "09:00:00"
+        },
+        "osm_26": {
+            "lat": 22.7138483,
+            "lng": 75.8750059,
+            "source": "osm",
+            "cycle_time": 120,
+            "green_time": 55,
+            "yellow_time": 5,
+            "red_time": 60,
+            "start_reference": "09:00:00"
+        },
+        "osm_27": {
+            "lat": 22.714668,
+            "lng": 75.8745609,
+            "source": "osm",
+            "cycle_time": 120,
+            "green_time": 55,
+            "yellow_time": 5,
+            "red_time": 60,
+            "start_reference": "09:00:00"
+        },
+        "osm_28": {
+            "lat": 22.7228232,
+            "lng": 75.8822893,
+            "source": "osm",
+            "cycle_time": 120,
+            "green_time": 55,
+            "yellow_time": 5,
+            "red_time": 60,
+            "start_reference": "09:00:00"
+        },
+        "osm_29": {
+            "lat": 22.7228588,
+            "lng": 75.882402,
+            "source": "osm",
+            "cycle_time": 120,
+            "green_time": 55,
+            "yellow_time": 5,
+            "red_time": 60,
+            "start_reference": "09:00:00"
+        },
+        "osm_30": {
+            "lat": 22.7275302,
+            "lng": 75.8879704,
+            "source": "osm",
+            "cycle_time": 120,
+            "green_time": 55,
+            "yellow_time": 5,
+            "red_time": 60,
+            "start_reference": "09:00:00"
+        },
+        "osm_31": {
+            "lat": 22.6926572,
+            "lng": 75.8997769,
+            "source": "osm",
+            "cycle_time": 120,
+            "green_time": 55,
+            "yellow_time": 5,
+            "red_time": 60,
+            "start_reference": "09:00:00"
+        },
+        "osm_32": {
+            "lat": 22.6927932,
+            "lng": 75.8995204,
+            "source": "osm",
+            "cycle_time": 120,
+            "green_time": 55,
+            "yellow_time": 5,
+            "red_time": 60,
+            "start_reference": "09:00:00"
+        },
+        "osm_33": {
+            "lat": 22.6929007,
+            "lng": 75.8999345,
+            "source": "osm",
+            "cycle_time": 120,
+            "green_time": 55,
+            "yellow_time": 5,
+            "red_time": 60,
+            "start_reference": "09:00:00"
+        },
+        "osm_34": {
+            "lat": 22.693048,
+            "lng": 75.899743,
+            "source": "osm",
+            "cycle_time": 120,
+            "green_time": 55,
+            "yellow_time": 5,
+            "red_time": 60,
+            "start_reference": "09:00:00"
+        },
+        "osm_35": {
+            "lat": 22.7059323,
+            "lng": 75.9061217,
+            "source": "osm",
+            "cycle_time": 120,
+            "green_time": 55,
+            "yellow_time": 5,
+            "red_time": 60,
+            "start_reference": "09:00:00"
+        },
+        "osm_36": {
+            "lat": 22.6836533,
+            "lng": 75.835719,
+            "source": "osm",
+            "cycle_time": 120,
+            "green_time": 55,
+            "yellow_time": 5,
+            "red_time": 60,
+            "start_reference": "09:00:00"
+        },
+        "osm_37": {
+            "lat": 22.6837919,
+            "lng": 75.8357366,
+            "source": "osm",
+            "cycle_time": 120,
+            "green_time": 55,
+            "yellow_time": 5,
+            "red_time": 60,
+            "start_reference": "09:00:00"
+        },
+        "osm_38": {
+            "lat": 22.692684,
+            "lng": 75.8675421,
+            "source": "osm",
+            "cycle_time": 120,
+            "green_time": 55,
+            "yellow_time": 5,
+            "red_time": 60,
+            "start_reference": "09:00:00"
+        },
+        "osm_39": {
+            "lat": 22.6926702,
+            "lng": 75.8677182,
+            "source": "osm",
+            "cycle_time": 120,
+            "green_time": 55,
+            "yellow_time": 5,
+            "red_time": 60,
+            "start_reference": "09:00:00"
+        },
+        "osm_40": {
+            "lat": 22.6989382,
+            "lng": 75.8780031,
+            "source": "osm",
+            "cycle_time": 120,
+            "green_time": 55,
+            "yellow_time": 5,
+            "red_time": 60,
+            "start_reference": "09:00:00"
+        },
+        "osm_41": {
+            "lat": 22.6989598,
+            "lng": 75.8779204,
+            "source": "osm",
+            "cycle_time": 120,
+            "green_time": 55,
+            "yellow_time": 5,
+            "red_time": 60,
+            "start_reference": "09:00:00"
+        },
+        "osm_42": {
+            "lat": 22.7058818,
+            "lng": 75.9055137,
+            "source": "osm",
+            "cycle_time": 120,
+            "green_time": 55,
+            "yellow_time": 5,
+            "red_time": 60,
+            "start_reference": "09:00:00"
+        },
+        "osm_43": {
+            "lat": 22.7060532,
+            "lng": 75.9061164,
+            "source": "osm",
+            "cycle_time": 120,
+            "green_time": 55,
+            "yellow_time": 5,
+            "red_time": 60,
+            "start_reference": "09:00:00"
+        },
+        "osm_44": {
+            "lat": 22.7497407,
+            "lng": 75.9036314,
+            "source": "osm",
+            "cycle_time": 120,
+            "green_time": 55,
+            "yellow_time": 5,
+            "red_time": 60,
+            "start_reference": "09:00:00"
+        },
+        "osm_45": {
+            "lat": 22.7490653,
+            "lng": 75.9034221,
+            "source": "osm",
+            "cycle_time": 120,
+            "green_time": 55,
+            "yellow_time": 5,
+            "red_time": 60,
+            "start_reference": "09:00:00"
+        },
+        "osm_46": {
+            "lat": 22.7491769,
+            "lng": 75.9038601,
+            "source": "osm",
+            "cycle_time": 120,
+            "green_time": 55,
+            "yellow_time": 5,
+            "red_time": 60,
+            "start_reference": "09:00:00"
+        },
+        "osm_47": {
+            "lat": 22.7494622,
+            "lng": 75.903155,
+            "source": "osm",
+            "cycle_time": 120,
+            "green_time": 55,
+            "yellow_time": 5,
+            "red_time": 60,
+            "start_reference": "09:00:00"
+        },
+        "osm_48": {
+            "lat": 22.6925084,
+            "lng": 75.8676392,
+            "source": "osm",
+            "cycle_time": 120,
+            "green_time": 55,
+            "yellow_time": 5,
+            "red_time": 60,
+            "start_reference": "09:00:00"
+        },
+        "osm_49": {
+            "lat": 22.6927469,
+            "lng": 75.8676758,
+            "source": "osm",
+            "cycle_time": 120,
+            "green_time": 55,
+            "yellow_time": 5,
+            "red_time": 60,
+            "start_reference": "09:00:00"
+        },
+        "osm_50": {
+            "lat": 22.6925713,
+            "lng": 75.8677729,
+            "source": "osm",
+            "cycle_time": 120,
+            "green_time": 55,
+            "yellow_time": 5,
+            "red_time": 60,
+            "start_reference": "09:00:00"
+        },
+        "osm_51": {
+            "lat": 22.7072786,
+            "lng": 75.8788776,
+            "source": "osm",
+            "cycle_time": 120,
+            "green_time": 55,
+            "yellow_time": 5,
+            "red_time": 60,
+            "start_reference": "09:00:00"
+        },
+        "osm_52": {
+            "lat": 22.7112362,
+            "lng": 75.8827913,
+            "source": "osm",
+            "cycle_time": 120,
+            "green_time": 55,
+            "yellow_time": 5,
+            "red_time": 60,
+            "start_reference": "09:00:00"
+        },
+        "osm_53": {
+            "lat": 22.7183102,
+            "lng": 75.8843025,
+            "source": "osm",
+            "cycle_time": 120,
+            "green_time": 55,
+            "yellow_time": 5,
+            "red_time": 60,
+            "start_reference": "09:00:00"
+        },
+        "osm_54": {
+            "lat": 22.7111222,
+            "lng": 75.8831051,
+            "source": "osm",
+            "cycle_time": 120,
+            "green_time": 55,
+            "yellow_time": 5,
+            "red_time": 60,
+            "start_reference": "09:00:00"
+        },
+        "osm_55": {
+            "lat": 22.7115251,
+            "lng": 75.8827039,
+            "source": "osm",
+            "cycle_time": 120,
+            "green_time": 55,
+            "yellow_time": 5,
+            "red_time": 60,
+            "start_reference": "09:00:00"
+        },
+        "osm_56": {
+            "lat": 22.7116635,
+            "lng": 75.8831502,
+            "source": "osm",
+            "cycle_time": 120,
+            "green_time": 55,
+            "yellow_time": 5,
+            "red_time": 60,
+            "start_reference": "09:00:00"
+        },
+        "osm_57": {
+            "lat": 22.7183163,
+            "lng": 75.884229,
+            "source": "osm",
+            "cycle_time": 120,
+            "green_time": 55,
+            "yellow_time": 5,
+            "red_time": 60,
+            "start_reference": "09:00:00"
+        },
+        "osm_58": {
+            "lat": 22.7183035,
+            "lng": 75.884384,
+            "source": "osm",
+            "cycle_time": 120,
+            "green_time": 55,
+            "yellow_time": 5,
+            "red_time": 60,
+            "start_reference": "09:00:00"
+        },
+        "osm_59": {
+            "lat": 22.7184175,
+            "lng": 75.8842348,
+            "source": "osm",
+            "cycle_time": 120,
+            "green_time": 55,
+            "yellow_time": 5,
+            "red_time": 60,
+            "start_reference": "09:00:00"
+        },
+        "osm_60": {
+            "lat": 22.7107962,
+            "lng": 75.8854058,
+            "source": "osm",
+            "cycle_time": 120,
+            "green_time": 55,
+            "yellow_time": 5,
+            "red_time": 60,
+            "start_reference": "09:00:00"
+        },
+        "osm_61": {
+            "lat": 22.7108919,
+            "lng": 75.8856049,
+            "source": "osm",
+            "cycle_time": 120,
+            "green_time": 55,
+            "yellow_time": 5,
+            "red_time": 60,
+            "start_reference": "09:00:00"
+        },
+        "osm_62": {
+            "lat": 22.698477,
+            "lng": 75.8779655,
+            "source": "osm",
+            "cycle_time": 120,
+            "green_time": 55,
+            "yellow_time": 5,
+            "red_time": 60,
+            "start_reference": "09:00:00"
+        },
+        "osm_63": {
+            "lat": 22.6985469,
+            "lng": 75.877712,
+            "source": "osm",
+            "cycle_time": 120,
+            "green_time": 55,
+            "yellow_time": 5,
+            "red_time": 60,
+            "start_reference": "09:00:00"
+        },
+        "osm_64": {
+            "lat": 22.6985931,
+            "lng": 75.8781329,
+            "source": "osm",
+            "cycle_time": 120,
+            "green_time": 55,
+            "yellow_time": 5,
+            "red_time": 60,
+            "start_reference": "09:00:00"
+        },
+        "osm_65": {
+            "lat": 22.6985082,
+            "lng": 75.8777626,
+            "source": "osm",
+            "cycle_time": 120,
+            "green_time": 55,
+            "yellow_time": 5,
+            "red_time": 60,
+            "start_reference": "09:00:00"
+        },
+        "osm_66": {
+            "lat": 22.6836667,
+            "lng": 75.8355948,
+            "source": "osm",
+            "cycle_time": 120,
+            "green_time": 55,
+            "yellow_time": 5,
+            "red_time": 60,
+            "start_reference": "09:00:00"
+        },
+        "osm_67": {
+            "lat": 22.6838054,
+            "lng": 75.8356125,
+            "source": "osm",
+            "cycle_time": 120,
+            "green_time": 55,
+            "yellow_time": 5,
+            "red_time": 60,
+            "start_reference": "09:00:00"
+        },
+        "osm_68": {
+            "lat": 22.694128,
+            "lng": 75.8282239,
+            "source": "osm",
+            "cycle_time": 120,
+            "green_time": 55,
+            "yellow_time": 5,
+            "red_time": 60,
+            "start_reference": "09:00:00"
+        },
+        "osm_69": {
+            "lat": 22.733548,
+            "lng": 75.8901017,
+            "source": "osm",
+            "cycle_time": 120,
+            "green_time": 55,
+            "yellow_time": 5,
+            "red_time": 60,
+            "start_reference": "09:00:00"
+        },
+        "osm_70": {
+            "lat": 22.7336207,
+            "lng": 75.8902109,
+            "source": "osm",
+            "cycle_time": 120,
+            "green_time": 55,
+            "yellow_time": 5,
+            "red_time": 60,
+            "start_reference": "09:00:00"
+        },
+        "osm_71": {
+            "lat": 22.733657,
+            "lng": 75.8901445,
+            "source": "osm",
+            "cycle_time": 120,
+            "green_time": 55,
+            "yellow_time": 5,
+            "red_time": 60,
+            "start_reference": "09:00:00"
+        },
+        "osm_72": {
+            "lat": 22.7315641,
+            "lng": 75.9024379,
+            "source": "osm",
+            "cycle_time": 120,
+            "green_time": 55,
+            "yellow_time": 5,
+            "red_time": 60,
+            "start_reference": "09:00:00"
+        },
+        "osm_73": {
+            "lat": 22.7227561,
+            "lng": 75.8824402,
+            "source": "osm",
+            "cycle_time": 120,
+            "green_time": 55,
+            "yellow_time": 5,
+            "red_time": 60,
+            "start_reference": "09:00:00"
+        },
+        "osm_74": {
+            "lat": 22.7074051,
+            "lng": 75.8788856,
+            "source": "osm",
+            "cycle_time": 120,
+            "green_time": 55,
+            "yellow_time": 5,
+            "red_time": 60,
+            "start_reference": "09:00:00"
+        },
+        "osm_75": {
+            "lat": 22.7096476,
+            "lng": 75.8906843,
+            "source": "osm",
+            "cycle_time": 120,
+            "green_time": 55,
+            "yellow_time": 5,
+            "red_time": 60,
+            "start_reference": "09:00:00"
+        },
+        "osm_76": {
+            "lat": 22.7095434,
+            "lng": 75.8907117,
+            "source": "osm",
+            "cycle_time": 120,
+            "green_time": 55,
+            "yellow_time": 5,
+            "red_time": 60,
+            "start_reference": "09:00:00"
+        },
+        "osm_77": {
+            "lat": 22.7197693,
+            "lng": 75.8585337,
+            "source": "osm",
+            "cycle_time": 120,
+            "green_time": 55,
+            "yellow_time": 5,
+            "red_time": 60,
+            "start_reference": "09:00:00"
+        },
+        "osm_78": {
+            "lat": 22.7198605,
+            "lng": 75.8584965,
+            "source": "osm",
+            "cycle_time": 120,
+            "green_time": 55,
+            "yellow_time": 5,
+            "red_time": 60,
+            "start_reference": "09:00:00"
+        },
+        "osm_79": {
+            "lat": 22.7198469,
+            "lng": 75.8586033,
+            "source": "osm",
+            "cycle_time": 120,
+            "green_time": 55,
+            "yellow_time": 5,
+            "red_time": 60,
+            "start_reference": "09:00:00"
+        },
+        "osm_80": {
+            "lat": 22.6938877,
+            "lng": 75.8281991,
+            "source": "osm",
+            "cycle_time": 120,
+            "green_time": 55,
+            "yellow_time": 5,
+            "red_time": 60,
+            "start_reference": "09:00:00"
+        },
+        "osm_81": {
+            "lat": 22.6939703,
+            "lng": 75.8283458,
+            "source": "osm",
+            "cycle_time": 120,
+            "green_time": 55,
+            "yellow_time": 5,
+            "red_time": 60,
+            "start_reference": "09:00:00"
+        },
+        "osm_82": {
+            "lat": 22.727471,
+            "lng": 75.8879486,
+            "source": "osm",
+            "cycle_time": 120,
+            "green_time": 55,
+            "yellow_time": 5,
+            "red_time": 60,
+            "start_reference": "09:00:00"
+        },
+        "osm_83": {
+            "lat": 22.6926052,
+            "lng": 75.8675857,
+            "source": "osm",
+            "cycle_time": 120,
+            "green_time": 55,
+            "yellow_time": 5,
+            "red_time": 60,
+            "start_reference": "09:00:00"
+        },
+        "osm_84": {
+            "lat": 22.7072864,
+            "lng": 75.8787324,
+            "source": "osm",
+            "cycle_time": 120,
+            "green_time": 55,
+            "yellow_time": 5,
+            "red_time": 60,
+            "start_reference": "09:00:00"
+        },
+        "osm_85": {
+            "lat": 22.7072891,
+            "lng": 75.8786824,
+            "source": "osm",
+            "cycle_time": 120,
+            "green_time": 55,
+            "yellow_time": 5,
+            "red_time": 60,
+            "start_reference": "09:00:00"
+        },
+        "osm_86": {
+            "lat": 22.7074104,
+            "lng": 75.8787869,
+            "source": "osm",
+            "cycle_time": 120,
+            "green_time": 55,
+            "yellow_time": 5,
+            "red_time": 60,
+            "start_reference": "09:00:00"
+        },
+        "osm_87": {
+            "lat": 22.7274406,
+            "lng": 75.8880399,
+            "source": "osm",
+            "cycle_time": 120,
+            "green_time": 55,
+            "yellow_time": 5,
+            "red_time": 60,
+            "start_reference": "09:00:00"
+        },
+        "osm_88": {
+            "lat": 22.7060054,
+            "lng": 75.905504,
+            "source": "osm",
+            "cycle_time": 120,
+            "green_time": 55,
+            "yellow_time": 5,
+            "red_time": 60,
+            "start_reference": "09:00:00"
+        },
+        "osm_89": {
+            "lat": 22.7080403,
+            "lng": 75.8554441,
+            "source": "osm",
+            "cycle_time": 120,
+            "green_time": 55,
+            "yellow_time": 5,
+            "red_time": 60,
+            "start_reference": "09:00:00"
+        },
+        "osm_90": {
+            "lat": 22.7080333,
+            "lng": 75.8553534,
+            "source": "osm",
+            "cycle_time": 120,
+            "green_time": 55,
+            "yellow_time": 5,
+            "red_time": 60,
+            "start_reference": "09:00:00"
+        },
+        "osm_91": {
+            "lat": 22.7274212,
+            "lng": 75.8880946,
+            "source": "osm",
+            "cycle_time": 120,
+            "green_time": 55,
+            "yellow_time": 5,
+            "red_time": 60,
+            "start_reference": "09:00:00"
+        },
+        "osm_92": {
+            "lat": 22.7274824,
+            "lng": 75.8881173,
+            "source": "osm",
+            "cycle_time": 120,
+            "green_time": 55,
+            "yellow_time": 5,
+            "red_time": 60,
+            "start_reference": "09:00:00"
+        },
+        "osm_93": {
+            "lat": 22.7275006,
+            "lng": 75.8880626,
+            "source": "osm",
+            "cycle_time": 120,
+            "green_time": 55,
+            "yellow_time": 5,
+            "red_time": 60,
+            "start_reference": "09:00:00"
+        },
+        "osm_94": {
+            "lat": 22.7253306,
+            "lng": 75.8873521,
+            "source": "osm",
+            "cycle_time": 120,
+            "green_time": 55,
+            "yellow_time": 5,
+            "red_time": 60,
+            "start_reference": "09:00:00"
+        },
+        "osm_95": {
+            "lat": 22.7254502,
+            "lng": 75.8874067,
+            "source": "osm",
+            "cycle_time": 120,
+            "green_time": 55,
+            "yellow_time": 5,
+            "red_time": 60,
+            "start_reference": "09:00:00"
+        },
+        "osm_96": {
+            "lat": 22.6929202,
+            "lng": 75.8995252,
+            "source": "osm",
+            "cycle_time": 120,
+            "green_time": 55,
+            "yellow_time": 5,
+            "red_time": 60,
+            "start_reference": "09:00:00"
+        },
+        "osm_97": {
+            "lat": 22.6930185,
+            "lng": 75.8996125,
+            "source": "osm",
+            "cycle_time": 120,
+            "green_time": 55,
+            "yellow_time": 5,
+            "red_time": 60,
+            "start_reference": "09:00:00"
+        },
+        "osm_98": {
+            "lat": 22.693045,
+            "lng": 75.8996775,
+            "source": "osm",
+            "cycle_time": 120,
+            "green_time": 55,
+            "yellow_time": 5,
+            "red_time": 60,
+            "start_reference": "09:00:00"
+        },
+        "osm_99": {
+            "lat": 22.6939005,
+            "lng": 75.8281576,
+            "source": "osm",
+            "cycle_time": 120,
+            "green_time": 55,
+            "yellow_time": 5,
+            "red_time": 60,
+            "start_reference": "09:00:00"
+        },
+        "osm_100": {
+            "lat": 22.6941202,
+            "lng": 75.828266,
+            "source": "osm",
+            "cycle_time": 120,
+            "green_time": 55,
+            "yellow_time": 5,
+            "red_time": 60,
+            "start_reference": "09:00:00"
+        },
+        "osm_101": {
+            "lat": 22.6940076,
+            "lng": 75.8280881,
+            "source": "osm",
+            "cycle_time": 120,
+            "green_time": 55,
+            "yellow_time": 5,
+            "red_time": 60,
+            "start_reference": "09:00:00"
+        },
+        "manual_Maharana_Chhatrasal_Bundela_Square": {
+        "lat": 22.75348627608243,
+        "lng": 75.90409211323686,
+        "source": "manual",
+        "cycle_time": 150,
+        "green_time": 70,
+        "yellow_time": 5,
+        "red_time": 75,
+        "start_reference": "08:30:00"
+        },
+        "manual_Piplya_kumar_square": {
+      "lat": 22.77052, 
+      "lng": 75.90891,
+      "source": "manual",
+      "cycle_time": 150,
+      "green_time": 70,
+      "yellow_time": 5,
+      "red_time": 75,
+      "start_reference": "08:30:00"
+    }
+
+    }
+}

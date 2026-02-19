@@ -1,102 +1,154 @@
+import json
 import osmnx as ox
 
-def _distance_m(lat1, lon1, lat2, lon2):
-        return ox.distance.great_circle(lat1, lon1, lat2, lon2)
 
 class SignalModel:
-    def __init__(self, graph, place_name="Indore, India",
+    def __init__(self, graph,
+                 registry_file="data/signals_registry.json",
+                 threshold=25,
                  avg_wait_per_signal=45,
                  stop_probability=0.6):
 
         self.G = graph
-        self.place_name = place_name
+        self.registry_file = registry_file
+        self.threshold = threshold
         self.avg_wait = avg_wait_per_signal
         self.stop_prob = stop_probability
 
-        self.signal_nodes = set()
-    
-    # -------------------------------------
-    # Step 1: Extract + Attach Signals
-    # -------------------------------------
-    
-    def attach_signals(self):
+        self.junction_map = {}     # node_id -> junction_id
+        self.junction_data = {}    # junction_id -> timing
 
-        print("Extracting traffic signals from OSM...")
-        tags = {"highway": "traffic_signals"}
-        signals = ox.features_from_place(self.place_name, tags)
+        self._load_runtime_signals()
 
-        raw_signal_nodes = []
+    # ---------------------------------------------------
+    # Runtime Loader (OSM + Manual merged automatically)
+    # ---------------------------------------------------
+    def _load_runtime_signals(self):
 
-        for idx, row in signals.iterrows():
-            if row.geometry.geom_type != "Point":
-                continue
+        print("Loading signal registry...")
 
-            lat = row.geometry.y
-            lng = row.geometry.x
+        with open(self.registry_file, "r") as f:
+            data = json.load(f)
+
+        raw_signals = data["signals"]
+
+        snapped = []
+
+        # Step 1: Snap lat/lng to graph nodes
+        for key, sig in raw_signals.items():
+            lat = sig["lat"]
+            lng = sig["lng"]
 
             node = ox.nearest_nodes(self.G, lng, lat)
-            raw_signal_nodes.append(node)
 
-        print("Raw snapped signal nodes:", len(raw_signal_nodes))
+            snapped.append({
+                "node": node,
+                "timing": sig,
+                "source": sig.get("source", "unknown")
+            })
 
-        # ---- CLUSTERING STEP ----
-        clustered_nodes = []
-        used = set()
+        # Step 2: Spatial clustering into junctions
+        visited = set()
+        junctions = []
 
-        threshold = 13.5  # meters
-
-        for node in raw_signal_nodes:
-            if node in used:
+        for i, s1 in enumerate(snapped):
+            if i in visited:
                 continue
 
-            lat1 = self.G.nodes[node]["y"]
-            lon1 = self.G.nodes[node]["x"]
+            cluster = [s1]
+            visited.add(i)
 
-            cluster = [node]
-            used.add(node)
+            lat1 = self.G.nodes[s1["node"]]["y"]
+            lon1 = self.G.nodes[s1["node"]]["x"]
 
-            for other in raw_signal_nodes:
-                if other in used:
+            for j, s2 in enumerate(snapped):
+                if j in visited:
                     continue
 
-                lat2 = self.G.nodes[other]["y"]
-                lon2 = self.G.nodes[other]["x"]
+                lat2 = self.G.nodes[s2["node"]]["y"]
+                lon2 = self.G.nodes[s2["node"]]["x"]
 
-                if _distance_m(lat1, lon1, lat2, lon2) < threshold:
-                    cluster.append(other)
-                    used.add(other)
+                dist = ox.distance.great_circle(lat1, lon1, lat2, lon2)
 
-            # choose first node as representative
-            clustered_nodes.append(cluster[0])
+                if dist < self.threshold:
+                    cluster.append(s2)
+                    visited.add(j)
 
-        self.signal_nodes = set(clustered_nodes)
+            junctions.append(cluster)
 
-        # Reset all nodes
-        for n in self.G.nodes:
-            self.G.nodes[n]["has_signal"] = False
+        # Step 3: Build junction maps
+        for jid, cluster in enumerate(junctions):
 
-        for n in self.signal_nodes:
-            self.G.nodes[n]["has_signal"] = True
+            # Manual overrides OSM
+            manual_entry = next((s for s in cluster if s["source"] == "manual"), None)
 
-        print("Clustered signal intersections:", len(self.signal_nodes))
+            if manual_entry:
+                timing = manual_entry["timing"]
+            else:
+                timing = cluster[0]["timing"]
 
-    # -------------------------------------
-    # Step 2: Analyze Route
-    # -------------------------------------
+            self.junction_data[jid] = timing
+
+            for s in cluster:
+                self.junction_map[s["node"]] = jid
+
+        print(f"Runtime junctions formed: {len(self.junction_data)}")
+
+    # ---------------------------------------------------
+    # Route Analysis (One Per Junction)
+    # ---------------------------------------------------
     def analyze_route(self, route):
-        signal_count = 0
+
+        junctions_encountered = set()
 
         for node in route:
-            if self.G.nodes[node].get("has_signal", False):
-                signal_count += 1
+            if node in self.junction_map:
+                junctions_encountered.add(self.junction_map[node])
+
+        signal_count = len(junctions_encountered)
 
         expected_stops = signal_count * self.stop_prob
         expected_delay = expected_stops * self.avg_wait
 
-
         return {
             "signal_count": signal_count,
             "expected_stops": round(expected_stops, 2),
-            "expected_signal_delay_sec": round(expected_delay, 2),
             "expected_signal_delay_min": round(expected_delay / 60, 2)
         }
+import folium
+
+def visualize_runtime_junctions(self, output_file="runtime_junctions.html"):
+
+    if not self.junction_data:
+        print("No junctions loaded.")
+        return
+
+    # Get center from first junction
+    first_junction = next(iter(self.junction_data.values()))
+    center_lat = first_junction["lat"]
+    center_lng = first_junction["lng"]
+
+    m = folium.Map(location=[center_lat, center_lng], zoom_start=13)
+
+    for jid, timing in self.junction_data.items():
+
+        lat = timing["lat"]
+        lng = timing["lng"]
+        source = timing.get("source", "unknown")
+
+        if source == "manual":
+            color = "red"
+        else:
+            color = "blue"
+
+        folium.CircleMarker(
+            location=[lat, lng],
+            radius=6,
+            color=color,
+            fill=True,
+            fill_opacity=0.9,
+            popup=f"Junction {jid} ({source})"
+        ).add_to(m)
+
+    m.save(output_file)
+    print(f"Runtime junction map saved -> {output_file}")
