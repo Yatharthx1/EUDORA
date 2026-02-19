@@ -1029,6 +1029,176 @@
       "yellow_time": 5,
       "red_time": 75,
       "start_reference": "08:30:00"
+    },
+     "manual_Vijay_Nagar_square": {
+      "lat": 22.751048611496188,
+      "lng":  75.89550729919544,
+      "source": "manual",
+      "cycle_time": 150,
+      "green_time": 70,
+      "yellow_time": 5,
+      "red_time": 75,
+      "start_reference": "08:30:00"
+    },
+     "manual_Satya_Sai_square": {
+      "lat": 22.755300990482638,  
+      "lng": 75.89675199593172,
+      "source": "manual",
+      "cycle_time": 150,
+      "green_time": 70,
+      "yellow_time": 5,
+      "red_time": 75,
+      "start_reference": "08:30:00"
+    },
+     "manual_Rasoma_square": {
+      "lat": 22.748902057390776,  
+      "lng": 75.89479390495256,
+      "source": "manual",
+      "cycle_time": 150,
+      "green_time": 70,
+      "yellow_time": 5,
+      "red_time": 75,
+      "start_reference": "08:30:00"
+    },
+         "manual_Malviya_Nagar_square": {
+      "lat": 22.74256818254096,  
+      "lng": 75.89282707932412 ,
+      "source": "manual",
+      "cycle_time": 150,
+      "green_time": 70,
+      "yellow_time": 5,
+      "red_time": 75,
+      "start_reference": "08:30:00"
+    },
+        "manual_Janjeerwala_square": {
+      "lat": 22.72663443474447,  
+      "lng": 75.88101932291153 ,
+      "source": "manual",
+      "cycle_time": 150,
+      "green_time": 70,
+      "yellow_time": 5,
+      "red_time": 75,
+      "start_reference": "08:30:00"
+    },
+        "manual_RS_Bhandari_marg_square": {
+      "lat": 22.722815691512775, 
+      "lng": 75.88238147123266 ,
+      "source": "manual",
+      "cycle_time": 150,
+      "green_time": 70,
+      "yellow_time": 5,
+      "red_time": 75,
+      "start_reference": "08:30:00"
+    },
+        "manual_High_Court_square": {
+      "lat": 22.720624183798616,   
+      "lng": 75.87390040805911,
+      "source": "manual",
+      "cycle_time": 150,
+      "green_time": 70,
+      "yellow_time": 5,
+      "red_time": 75,
+      "start_reference": "08:30:00"
+    },
+        "manual_Regal_square": {
+      "lat": 22.719982156754455,   
+      "lng": 75.87107076186906,
+      "source": "manual",
+      "cycle_time": 150,
+      "green_time": 70,
+      "yellow_time": 5,
+      "red_time": 75,
+      "start_reference": "08:30:00"
+    },
+        "manual_Random1_square": {
+      "lat": 22.719133148930926,   
+      "lng": 75.86639246675301 ,
+      "source": "manual",
+      "cycle_time": 150,
+      "green_time": 70,
+      "yellow_time": 5,
+      "red_time": 75,
+      "start_reference": "08:30:00"
+    },
+        "manual_Random2_square": {
+      "lat": 22.719942407260216, 
+      "lng": 75.86281659272994 ,
+      "source": "manual",
+      "cycle_time": 150,
+      "green_time": 70,
+      "yellow_time": 5,
+      "red_time": 75,
+      "start_reference": "08:30:00"
+    },
+        "manual_Jail_Road_square": {
+      "lat": 22.720087669016703,  
+      "lng": 75.86152323459997 ,
+      "source": "manual",
+      "cycle_time": 150,
+      "green_time": 70,
+      "yellow_time": 5,
+      "red_time": 75,
+      "start_reference": "08:30:00"
+    },
+            "manual_Saraswati_Riverside_square": {
+      "lat": 22.71980280301434,   
+      "lng": 75.8585247779958 ,
+      "source": "manual",
+      "cycle_time": 150,
+      "green_time": 70,
+      "yellow_time": 5,
+      "red_time": 75,
+      "start_reference": "08:30:00"
+    },
+        "manual_Guru_Nanak_Chowk": {
+      "lat": 22.716421189845143,    
+      "lng": 75.85546202176073 ,
+      "source": "manual",
+      "cycle_time": 150,
+      "green_time": 70,
+      "yellow_time": 5,
+      "red_time": 75,
+      "start_reference": "08:30:00"
+    },
+        "manual_Lantern_square": {
+      "lat": 22.724678977949164,      
+      "lng": 75.87417522778539 ,
+      "source": "manual",
+      "cycle_time": 150,
+      "green_time": 70,
+      "yellow_time": 5,
+      "red_time": 75,
+      "start_reference": "08:30:00"
+    },
+        "manual_Patnipura_square": {
+      "lat": 22.73980883685092,     
+      "lng":  75.88083795260313 ,
+      "source": "manual",
+      "cycle_time": 150,
+      "green_time": 70,
+      "yellow_time": 5,
+      "red_time": 75,
+      "start_reference": "08:30:00"
+    },
+        "manual_Sayaji_square": {
+      "lat": 22.752141579417096,     
+      "lng":  75.89049137244638,
+      "source": "manual",
+      "cycle_time": 150,
+      "green_time": 70,
+      "yellow_time": 5,
+      "red_time": 75,
+      "start_reference": "08:30:00"
+    },
+        "manual_Random3_square": {
+      "lat": 22.789727997571266,      
+      "lng":  75.84734742188077 ,
+      "source": "manual",
+      "cycle_time": 150,
+      "green_time": 70,
+      "yellow_time": 5,
+      "red_time": 75,
+      "start_reference": "08:30:00"
     }
 
     }
