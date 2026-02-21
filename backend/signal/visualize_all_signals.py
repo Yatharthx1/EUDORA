@@ -38,9 +38,9 @@ def visualize_all_signals(
 
         # Different color for manual vs osm
         if source == "manual":
-            color = "red"
+            color = "Blue"
         else:
-            color = "blue"
+            color = "Red"
 
         folium.CircleMarker(
             location=[lat, lng],
