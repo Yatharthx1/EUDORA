@@ -7,3 +7,4 @@ osmnx
 networkx
 matplotlib
 folium
+requests

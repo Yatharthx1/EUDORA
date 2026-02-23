@@ -1,7 +1,6 @@
 import json
 import folium
 
-
 def visualize_all_signals(
     json_file="data/signals_registry.json",
     output_file="all_signals_visualization.html"
@@ -44,7 +43,7 @@ def visualize_all_signals(
 
         folium.CircleMarker(
             location=[lat, lng],
-            radius=4,
+            radius=3,
             color=color,
             fill=True,
             fill_opacity=0.8,
