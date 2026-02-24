@@ -43,7 +43,7 @@ def visualize_all_signals(
 
         folium.CircleMarker(
             location=[lat, lng],
-            radius=3,
+            radius=4,
             color=color,
             fill=True,
             fill_opacity=0.8,
