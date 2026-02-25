@@ -46,7 +46,7 @@ def visualize_all_signals(
             radius=4,
             color=color,
             fill=True,
-            fill_opacity=0.8,
+            fill_opacity=0.7,
             popup=f"{key} ({source})"
         ).add_to(m)
 
