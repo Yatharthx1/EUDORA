@@ -7,7 +7,7 @@ class SignalModel:
                  graph,
                  registry_file="data/signals_registry.json",
                  threshold=35,
-                 detection_radius=40,
+                 detection_radius=50,
                  avg_wait_per_signal=45,
                  stop_probability=0.6):
 

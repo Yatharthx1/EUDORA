@@ -63,8 +63,8 @@ def run_test():
     print("Initializing signal model...")
     signal_model = SignalModel(G)
 
-    origin_lat, origin_lon = 22.753243581674887, 75.90394084049616
-    dest_lat, dest_lon = 22.72402097377865, 75.88678568825465
+    origin_lat, origin_lon = 22.70539, 75.84372
+    dest_lat, dest_lon = 22.75597, 75.89662
 
     print("Computing route...")
     result = compute_route(G, origin_lat, origin_lon, dest_lat, dest_lon)
