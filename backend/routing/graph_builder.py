@@ -55,7 +55,7 @@ def build_graph(
 
         print("Graph loaded and sanitized.")
         print(f"Nodes: {len(G.nodes)}")
-        print(f"Edges: {len(G.edges)}")
+        print(f"Edges: {len(G.edges)}") 
         return G
 
     # Otherwise download
