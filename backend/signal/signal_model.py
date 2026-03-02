@@ -1,123 +1,107 @@
 import json
+import os
 import osmnx as ox
+import math
 
 
 class SignalModel:
-    def __init__(self,
-                 graph,
-                 registry_file="data/signals_registry.json",
-                 threshold=35,
-                 detection_radius=50,
-                 avg_wait_per_signal=45,
-                 stop_probability=0.6):
-
+    def __init__(
+        self,
+        graph,
+        registry_file="data/signals_registry.json",
+        cluster_radius=35,       # meters
+        detection_radius=50,     # meters
+        avg_wait_per_signal=45,
+        stop_probability=0.6
+    ):
         self.G = graph
         self.registry_file = registry_file
-        self.threshold = threshold
+        self.cluster_radius = cluster_radius
         self.detection_radius = detection_radius
         self.avg_wait = avg_wait_per_signal
         self.stop_prob = stop_probability
 
-        self.junctions = []  # list of {lat, lng, timing}
-
-        self._load_runtime_signals()
+        self.junctions = []        # logical junctions
+        self._load_and_cluster_signals()
 
     # ---------------------------------------------------
-    # Runtime Loader with Proper Transitive Clustering
+    # Load + Snap + Cluster
     # ---------------------------------------------------
-    def _load_runtime_signals(self):
+    def _load_and_cluster_signals(self):
 
         print("Loading signal registry...")
+
+        if not os.path.exists(self.registry_file):
+            print("Signal registry file not found.")
+            return
 
         with open(self.registry_file, "r") as f:
             data = json.load(f)
 
-        raw_signals = data["signals"]
+        raw_signals = data.get("signals", {})
 
-        snapped = []
+        snapped_nodes = []
 
-        # Step 1: Snap all signals to graph
-        for key, sig in raw_signals.items():
+        for _, sig in raw_signals.items():
             lat = sig["lat"]
             lng = sig["lng"]
 
-            node = ox.nearest_nodes(self.G, lng, lat)
+            node = ox.distance.nearest_nodes(self.G, lng, lat)
 
-            snapped.append({
-                "node": node,
-                "lat": lat,
-                "lng": lng,
-                "timing": sig,
-                "source": sig.get("source", "unknown")
-            })
+            snapped_nodes.append(node)
 
-        # Step 2: Flood-fill clustering
-        visited = set()
+        # Remove duplicates
+        snapped_nodes = list(set(snapped_nodes))
+
+        # Build clusters
         clusters = []
+        visited = set()
 
-        for i in range(len(snapped)):
-            if i in visited:
+        for node in snapped_nodes:
+
+            if node in visited:
                 continue
 
-            stack = [i]
-            cluster_indices = []
+            cluster = [node]
+            visited.add(node)
 
-            while stack:
-                idx = stack.pop()
+            lat1 = self.G.nodes[node]["y"]
+            lon1 = self.G.nodes[node]["x"]
 
-                if idx in visited:
+            for other in snapped_nodes:
+                if other in visited:
                     continue
 
-                visited.add(idx)
-                cluster_indices.append(idx)
+                lat2 = self.G.nodes[other]["y"]
+                lon2 = self.G.nodes[other]["x"]
 
-                lat1 = self.G.nodes[snapped[idx]["node"]]["y"]
-                lon1 = self.G.nodes[snapped[idx]["node"]]["x"]
+                dist = ox.distance.great_circle(lat1, lon1, lat2, lon2)
 
-                for j in range(len(snapped)):
-                    if j in visited:
-                        continue
+                if dist <= self.cluster_radius:
+                    cluster.append(other)
+                    visited.add(other)
 
-                    lat2 = self.G.nodes[snapped[j]["node"]]["y"]
-                    lon2 = self.G.nodes[snapped[j]["node"]]["x"]
+            clusters.append(cluster)
 
-                    dist = ox.distance.great_circle(lat1, lon1, lat2, lon2)
-
-                    if dist < self.threshold:
-                        stack.append(j)
-
-            clusters.append([snapped[k] for k in cluster_indices])
-
-        # Step 3: Build logical junctions
+        # Convert clusters into logical junctions
         for cluster in clusters:
 
-            # Manual entry overrides OSM
-            manual_entry = next((s for s in cluster if s["source"] == "manual"), None)
+            lats = [self.G.nodes[n]["y"] for n in cluster]
+            lngs = [self.G.nodes[n]["x"] for n in cluster]
 
-            if manual_entry:
-                center_lat = manual_entry["lat"]
-                center_lng = manual_entry["lng"]
-                timing = manual_entry["timing"]
-            else:
-                # compute geometric center
-                latitudes = [self.G.nodes[s["node"]]["y"] for s in cluster]
-                longitudes = [self.G.nodes[s["node"]]["x"] for s in cluster]
-
-                center_lat = sum(latitudes) / len(latitudes)
-                center_lng = sum(longitudes) / len(longitudes)
-
-                timing = cluster[0]["timing"]
+            center_lat = sum(lats) / len(lats)
+            center_lng = sum(lngs) / len(lngs)
 
             self.junctions.append({
+                "nodes": cluster,
                 "lat": center_lat,
-                "lng": center_lng,
-                "timing": timing
+                "lng": center_lng
             })
 
-        print(f"Runtime junctions formed: {len(self.junctions)}")
+        print(f"Logical junctions formed: {len(self.junctions)}")
 
     # ---------------------------------------------------
-    # Route Analysis (One Per Junction)
+    # Route Analysis (1 per junction)
     # ---------------------------------------------------
     def analyze_route(self, route):
 
@@ -138,7 +122,7 @@ class SignalModel:
                     j_lat, j_lng
                 )
 
-                if dist < self.detection_radius:
+                if dist <= self.detection_radius:
                     signal_count += 1
                     break
 
@@ -150,34 +134,28 @@ class SignalModel:
             "expected_stops": round(expected_stops, 2),
             "expected_signal_delay_min": round(expected_delay / 60, 2)
         }
+    def attach_signal_weights(self):
 
-    # ---------------------------------------------------
-    # Visualization
-    # ---------------------------------------------------
-    def visualize_runtime_junctions(self, output_file="runtime_junctions.html"):
-
-        import folium
-
-        if not self.junctions:
-            print("No junctions loaded.")
-            return
-
-        first = self.junctions[0]
-
-        m = folium.Map(location=[first["lat"], first["lng"]], zoom_start=13)
+        # Build a fast lookup set of cluster center nodes
+        cluster_nodes = set()
 
         for junction in self.junctions:
+            for node in junction["nodes"]:
+                cluster_nodes.add(node)
 
-            source = junction["timing"].get("source", "unknown")
-            color = "red" if source == "manual" else "blue"
+        for u, v, k, data in self.G.edges(keys=True, data=True):
 
-            folium.CircleMarker(
-                location=[junction["lat"], junction["lng"]],
-                radius=6,
-                color=color,
-                fill=True,
-                fill_opacity=0.9
-            ).add_to(m)
+            if v in cluster_nodes:
+                data["signal_presence"] = 1
+                expected_delay_min = (
+                    self.stop_prob *
+                    (self.avg_wait / 60.0)
+                )
+            else:
+                data["signal_presence"] = 0
+                expected_delay_min = 0.0
 
-        m.save(output_file)
-        print(f"Runtime junction map saved -> {output_file}")
+            data["signal_delay"] = expected_delay_min
+            data["time_with_signal"] = data["base_time"] + expected_delay_min
+
+        print("Signal weights attached to graph.")
