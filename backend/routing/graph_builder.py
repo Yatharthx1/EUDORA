@@ -7,7 +7,7 @@ def prepare_graph(G, avg_speed_kmph=40.0):
     Ensure all numeric edge attributes are proper floats
     and compute base_time + traffic_factor.
     """
-
+   
     for u, v, k, data in G.edges(keys=True, data=True):
 
         # Ensure length is numeric
@@ -19,7 +19,22 @@ def prepare_graph(G, avg_speed_kmph=40.0):
 
         data["length"] = length_m
         data["base_time"] = float(travel_time_min)
-        data["traffic_factor"] = 1.0
+        data["traffic_factor"] = 1.0   
+        road_type = data.get("highway", "")
+
+        if isinstance(road_type, list):
+            road_type = road_type[0]
+
+        major = ["primary", "secondary", "tertiary"]
+
+        if road_type not in major:
+            data["road_penalty"] = 0.8   # strong penalty
+        else:
+            data["road_penalty"] = 0
+        data["time_with_behavior"] = (
+        data["base_time"]
+        + data.get("road_penalty", 0)
+        ) 
 
     return G
 
@@ -31,7 +46,14 @@ def sanitize_loaded_graph(G):
 
     for u, v, k, data in G.edges(keys=True, data=True):
 
-        for key in ["length", "base_time", "traffic_factor"]:
+        for key in [            "length",
+            "base_time",
+            "traffic_factor",
+            "road_penalty",
+            "time_with_behavior",
+            "signal_delay",
+            "time_with_signal"
+]:
             if key in data:
                 data[key] = float(data[key])
 
