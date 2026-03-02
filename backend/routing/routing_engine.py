@@ -3,10 +3,6 @@ import math
 import osmnx as ox
 
 
-# -----------------------------------------
-# Turn Penalty (Right heavier than Left)
-# -----------------------------------------
-
 def turn_penalty(G, A, B, C):
 
     lat1, lon1 = G.nodes[A]["y"], G.nodes[A]["x"]
@@ -23,33 +19,56 @@ def turn_penalty(G, A, B, C):
     if mag1 == 0 or mag2 == 0:
         return 0
 
-    angle = math.degrees(math.acos(max(-1, min(1, dot / (mag1 * mag2)))))
+    angle = math.degrees(math.acos(max(-1, min(1, dot/(mag1*mag2)))))
 
-    # Ignore near-straight movement
     if angle < 15:
         return 0
 
-    # Base penalty by sharpness
     if angle < 60:
-        penalty = 0.2
+        penalty = 1
     else:
-        penalty = 0.6
+        penalty = 3
 
-    # Determine turn direction (cross product)
     cross = v1[0]*v2[1] - v1[1]*v2[0]
 
-    # Right turn heavier than left
+    # right turn heavier
     if cross < 0:
         penalty *= 1.5
 
     return penalty
+def summarize_route(G, route):
 
+    total_time = 0
+    total_distance = 0
+    total_signals = 0
 
-# -----------------------------------------
-# Directional Dijkstra
-# -----------------------------------------
+    for i in range(len(route) - 1):
+        u = route[i]
+        v = route[i + 1]
 
-def directional_route(G, origin_lat, origin_lon, dest_lat, dest_lon):
+        edge = list(G[u][v].values())[0]
+
+        total_time += edge["base_time"]
+        total_distance += edge["length"]
+        total_signals += edge.get("signal_presence", 0)
+
+    return {
+        "route": route,
+        "distance_km": round(total_distance / 1000, 2),
+        "time_min": round(total_time, 2),
+        "signals": total_signals
+    }
+
+def weighted_directional_route(
+        G,
+        origin_lat,
+        origin_lon,
+        dest_lat,
+        dest_lon,
+        w_time=1.0,
+        w_signal=1.0,
+        w_turn=1.0,
+        w_hierarchy=1.0):
 
     origin = ox.distance.nearest_nodes(G, origin_lon, origin_lat)
     dest = ox.distance.nearest_nodes(G, dest_lon, dest_lat)
@@ -57,17 +76,16 @@ def directional_route(G, origin_lat, origin_lon, dest_lat, dest_lon):
     pq = []
     visited = {}
 
-    # Initialize from origin
     for neighbor in G.successors(origin):
-        edge_data = list(G[origin][neighbor].values())[0]
+        edge = list(G[origin][neighbor].values())[0]
 
-        base_cost = (
-            edge_data["base_time"]
-            + edge_data.get("signal_delay", 0)
-            + edge_data.get("road_penalty", 0)
+        cost = (
+            w_time * edge["base_time"] +
+            w_signal * edge.get("signal_delay", 0) +
+            w_hierarchy * edge.get("road_penalty", 0)
         )
 
-        heapq.heappush(pq, (base_cost, origin, neighbor, [origin, neighbor]))
+        heapq.heappush(pq, (cost, origin, neighbor, [origin, neighbor]))
 
     while pq:
         cost, prev, current, path = heapq.heappop(pq)
@@ -84,16 +102,16 @@ def directional_route(G, origin_lat, origin_lon, dest_lat, dest_lon):
 
         for next_node in G.successors(current):
 
-            edge_data = list(G[current][next_node].values())[0]
+            edge = list(G[current][next_node].values())[0]
 
-            turn_cost = turn_penalty(G, prev, current, next_node)
+            t_pen = turn_penalty(G, prev, current, next_node)
 
             new_cost = (
                 cost
-                + edge_data["base_time"]
-                + edge_data.get("signal_delay", 0)
-                + edge_data.get("road_penalty", 0)
-                + turn_cost
+                + w_time * edge["base_time"]
+                + w_signal * edge.get("signal_delay", 0)
+                + w_hierarchy * edge.get("road_penalty", 0)
+                + w_turn * t_pen
             )
 
             heapq.heappush(
@@ -102,31 +120,3 @@ def directional_route(G, origin_lat, origin_lon, dest_lat, dest_lon):
             )
 
     return None
-
-
-# -----------------------------------------
-# Route Summary
-# -----------------------------------------
-
-def summarize_route(G, route):
-
-    total_time = 0
-    total_distance = 0
-    total_signals = 0
-
-    for i in range(len(route) - 1):
-        u = route[i]
-        v = route[i + 1]
-
-        edge_data = list(G[u][v].values())[0]
-
-        total_time += edge_data["base_time"]
-        total_distance += edge_data["length"]
-        total_signals += edge_data.get("signal_presence", 0)
-
-    return {
-        "route": route,
-        "distance_km": round(total_distance / 1000, 2),
-        "time_min": round(total_time, 2),
-        "signals": total_signals
-    }
