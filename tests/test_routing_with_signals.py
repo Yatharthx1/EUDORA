@@ -72,27 +72,27 @@ def run_test():
     signal_model = SignalModel(G)
     signal_model.attach_signal_weights()
 
-    origin_lat, origin_lon = 22.70549, 75.84272
-    dest_lat, dest_lon = 22.755297, 75.8966
+    origin_lat, origin_lon = 22.723872405550065, 75.88668716276355
+    dest_lat, dest_lon = 22.77965146106933, 75.952075772599
 
     # ---- Fastest Route ----
     print("\nComputing FASTEST route...")
     fastest = weighted_directional_route(
     G, origin_lat, origin_lon, dest_lat, dest_lon,
-    w_time=1.0,
-    w_signal=0.2,
-    w_turn=0.2,
-    w_hierarchy=0.5
+    w_time=40.0,
+    w_signal=10.0,
+    w_turn=15.0,
+    w_hierarchy=35.0
 )
 
     # ---- Least Signal Route ----
     print("\nComputing LEAST SIGNAL route...")
     least_signal = weighted_directional_route(
     G, origin_lat, origin_lon, dest_lat, dest_lon,
-    w_time=0.4,
-    w_signal= 1.0,
-    w_turn=0.2,
-    w_hierarchy=0.5
+    w_time=15.0,
+    w_signal= 45.0,
+    w_turn=30.0,
+    w_hierarchy=10.0
 )
 
     # ---- Practical Urban Route ----
@@ -113,7 +113,9 @@ def run_test():
 
     print("\nREALISTIC:")
     print(realistic)
-
+    print("FASTEST:", fastest["time_min"], fastest["signals"])
+    print("PRACTICAL:", realistic["time_min"], realistic["signals"])
+    print("LEAST:", least_signal["time_min"], least_signal["signals"])
     visualize_routes(
     G,
     fastest["route"],
