@@ -1,7 +1,6 @@
 import json
 import os
 import osmnx as ox
-import math
 
 
 class SignalModel:
@@ -9,11 +8,12 @@ class SignalModel:
         self,
         graph,
         registry_file="data/signals_registry.json",
-        cluster_radius=35,       # meters
+        cluster_radius=50,       # meters
         detection_radius=50,     # meters
         avg_wait_per_signal=45,
         stop_probability=0.6
     ):
+
         self.G = graph
         self.registry_file = registry_file
         self.cluster_radius = cluster_radius
@@ -21,12 +21,14 @@ class SignalModel:
         self.avg_wait = avg_wait_per_signal
         self.stop_prob = stop_probability
 
-        self.junctions = []        # logical junctions
+        self.junctions = []
+
         self._load_and_cluster_signals()
 
     # ---------------------------------------------------
-    # Load + Snap + Cluster
+    # Load + Snap + Cluster Signals
     # ---------------------------------------------------
+
     def _load_and_cluster_signals(self):
 
         print("Loading signal registry...")
@@ -43,6 +45,7 @@ class SignalModel:
         snapped_nodes = []
 
         for _, sig in raw_signals.items():
+
             lat = sig["lat"]
             lng = sig["lng"]
 
@@ -50,10 +53,8 @@ class SignalModel:
 
             snapped_nodes.append(node)
 
-        # Remove duplicates
         snapped_nodes = list(set(snapped_nodes))
 
-        # Build clusters
         clusters = []
         visited = set()
 
@@ -69,6 +70,7 @@ class SignalModel:
             lon1 = self.G.nodes[node]["x"]
 
             for other in snapped_nodes:
+
                 if other in visited:
                     continue
 
@@ -83,7 +85,6 @@ class SignalModel:
 
             clusters.append(cluster)
 
-        # Convert clusters into logical junctions
         for cluster in clusters:
 
             lats = [self.G.nodes[n]["y"] for n in cluster]
@@ -101,8 +102,9 @@ class SignalModel:
         print(f"Logical junctions formed: {len(self.junctions)}")
 
     # ---------------------------------------------------
-    # Route Analysis (1 per junction)
+    # Route Analysis
     # ---------------------------------------------------
+
     def analyze_route(self, route):
 
         signal_count = 0
@@ -118,8 +120,10 @@ class SignalModel:
                 node_lng = self.G.nodes[node]["x"]
 
                 dist = ox.distance.great_circle(
-                    node_lat, node_lng,
-                    j_lat, j_lng
+                    node_lat,
+                    node_lng,
+                    j_lat,
+                    j_lng
                 )
 
                 if dist <= self.detection_radius:
@@ -134,9 +138,13 @@ class SignalModel:
             "expected_stops": round(expected_stops, 2),
             "expected_signal_delay_min": round(expected_delay / 60, 2)
         }
+
+    # ---------------------------------------------------
+    # Attach signal weights to graph
+    # ---------------------------------------------------
+
     def attach_signal_weights(self):
 
-        # Build a fast lookup set of cluster center nodes
         cluster_nodes = set()
 
         for junction in self.junctions:
@@ -146,12 +154,16 @@ class SignalModel:
         for u, v, k, data in self.G.edges(keys=True, data=True):
 
             if v in cluster_nodes:
+
                 data["signal_presence"] = 1
+
                 expected_delay_min = (
                     self.stop_prob *
                     (self.avg_wait / 60.0)
                 )
+
             else:
+
                 data["signal_presence"] = 0
                 expected_delay_min = 0.0
 
