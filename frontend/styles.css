@@ -595,3 +595,50 @@ body {
   .panel { width: 100%; min-width: unset; height: auto; max-height: 55vh; }
   .map-wrap { flex: 1; }
 }
+
+/* Signal toggle button */
+.signal-toggle {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  z-index: 500;
+  background: var(--bg-panel);
+  border: 1px solid var(--border-md);
+  border-radius: 9px;
+  padding: 8px 13px;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--text-2);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+  transition: all 0.18s var(--ease);
+}
+
+.signal-toggle:hover {
+  background: var(--bg-hover);
+  color: var(--text-1);
+}
+
+.signal-toggle.active {
+  background: rgba(240,165,0,0.12);
+  border-color: var(--fastest);
+  color: var(--fastest);
+}
+
+/* Signal tooltip */
+.signal-tooltip {
+  background: var(--bg-card) !important;
+  border: 1px solid var(--border-md) !important;
+  color: var(--text-2) !important;
+  font-family: 'DM Sans', sans-serif !important;
+  font-size: 11px !important;
+  border-radius: 5px !important;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.4) !important;
+  padding: 4px 8px !important;
+}
+
+.signal-tooltip::before { display: none !important; }

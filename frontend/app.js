@@ -1,5 +1,5 @@
 /* ================================================
-   Eudora- app.js
+   PATHWISE - app.js
    Leaflet map + Nominatim geocoding + route display
    No API keys required
    ================================================ */
@@ -325,6 +325,7 @@ function selectRoute(key) {
   });
 
   activatePolyline(key);
+  renderRouteSignals((routeData[key] || {}).signal_coords || []);
 
   // Update pill
   const route = routeData[key];
@@ -450,3 +451,45 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 });
+
+// ------------------------------------------------
+// Route signal markers (only signals on active route)
+// ------------------------------------------------
+
+let signalLayer = null;
+
+const SIGNAL_ICON = L.divIcon({
+  className: '',
+  html: `<div style="
+    width:11px;height:11px;
+    background:#f0a500;
+    border-radius:50%;
+    border:2px solid rgba(240,165,0,0.35);
+    box-shadow:0 0 7px rgba(240,165,0,0.8);
+  "></div>`,
+  iconSize: [11, 11],
+  iconAnchor: [5, 5],
+});
+
+function renderRouteSignals(signalCoords) {
+  if (signalLayer) {
+    signalLayer.remove();
+    signalLayer = null;
+  }
+
+  if (!signalCoords || signalCoords.length === 0) return;
+
+  signalLayer = L.layerGroup();
+
+  signalCoords.forEach(s => {
+    L.marker([s.lat, s.lng], { icon: SIGNAL_ICON })
+      .bindTooltip('Traffic Signal', {
+        direction: 'top',
+        offset: [0, -8],
+        className: 'signal-tooltip',
+      })
+      .addTo(signalLayer);
+  });
+
+  signalLayer.addTo(map);
+}

@@ -19,6 +19,19 @@ def route_to_geojson(G, route):
     }
 
 
+def extract_signal_coords(G, route):
+    coords = []
+    for i in range(len(route) - 1):
+        u, v = route[i], route[i + 1]
+        edge = list(G[u][v].values())[0]
+        if edge.get("signal_presence", 0):
+            coords.append({
+                "lat": G.nodes[v]["y"],
+                "lng": G.nodes[v]["x"],
+            })
+    return coords
+
+
 def build_response(G, result, pollution_model):
     if result is None:
         return None
@@ -28,6 +41,7 @@ def build_response(G, result, pollution_model):
         "time_min":        result["time_min"],
         "distance_km":     result["distance_km"],
         "signals":         result["signals"],
+        "signal_coords":   extract_signal_coords(G, result["route"]),
         "pollution_score": pollution["pollution_score"],
         "aqi_index":       pollution["aqi_index"],
         "aqi_label":       pollution["aqi_label"],
@@ -85,3 +99,14 @@ def get_routes(
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/get-signals")
+def get_signals(request: Request):
+    signal_model = request.app.state.signal_model
+    return {
+        "signals": [
+            {"lat": j["lat"], "lng": j["lng"]}
+            for j in signal_model.junctions
+        ]
+    }   

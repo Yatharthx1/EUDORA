@@ -8,7 +8,7 @@ class SignalModel:
         self,
         graph,
         registry_file="data/signals_registry.json",
-        cluster_radius=50,       # meters
+        cluster_radius=80,       # meters
         detection_radius=50,     # meters
         avg_wait_per_signal=45,
         stop_probability=0.6
