@@ -1,102 +1,122 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>EUDORA - Smart Navigation</title>
+  <title>EUDORA</title>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@400;500&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
 
   <aside class="panel">
-    <div class="panel-inner">
 
-      <div class="logo">
-        <div class="logo-mark">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+    <!-- Header -->
+    <header class="panel-header">
+      <div class="brand">
+        <div class="brand-icon">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
             <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z" fill="currentColor"/>
-            <circle cx="12" cy="9" r="2.5" fill="var(--bg-panel)"/>
+            <circle cx="12" cy="9" r="2.5" fill="var(--brand-icon-hole)"/>
           </svg>
         </div>
-        <div>
-          <div class="logo-name">EUDORA</div>
-          <div class="logo-sub">Indore Smart Routing</div>
+        <div class="brand-text">
+          <span class="brand-name">EUDORA</span>
+          <span class="brand-sub">Smart Routing &bull; Indore</span>
         </div>
       </div>
+      <button class="theme-toggle" id="theme-toggle" title="Toggle theme">
+        <!-- Sun (shown in dark mode) -->
+        <svg class="icon-sun" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="5"/>
+          <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>
+        </svg>
+        <!-- Moon (shown in light mode) -->
+        <svg class="icon-moon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+        </svg>
+      </button>
+    </header>
 
-      <div class="search-block">
+    <!-- Search Section -->
+    <section class="panel-section">
+      <div class="section-label">ROUTE PLANNER</div>
+
+      <div class="input-group">
         <div class="input-row">
-          <span class="dot dot-a"></span>
-          <div class="input-wrap">
-            <input id="input-origin" type="text" placeholder="From..." autocomplete="off" spellcheck="false" />
+          <div class="input-marker marker-a">A</div>
+          <div class="input-field-wrap">
+            <input id="input-origin" type="text" placeholder="Choose starting point" autocomplete="off" spellcheck="false" />
             <div class="suggestions" id="sug-origin"></div>
           </div>
         </div>
 
         <div class="input-connector">
-          <div class="connector-line"></div>
-          <button class="swap-btn" id="swap-btn" title="Swap">
+          <div class="connector-dots">
+            <span></span><span></span><span></span>
+          </div>
+          <button class="swap-btn" id="swap-btn" title="Swap locations">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
               <path d="M7 16V4m0 0L3 8m4-4l4 4M17 8v12m0 0l4-4m-4 4l-4-4"/>
             </svg>
           </button>
-          <div class="connector-line"></div>
         </div>
 
         <div class="input-row">
-          <span class="dot dot-b"></span>
-          <div class="input-wrap">
-            <input id="input-dest" type="text" placeholder="To..." autocomplete="off" spellcheck="false" />
+          <div class="input-marker marker-b">B</div>
+          <div class="input-field-wrap">
+            <input id="input-dest" type="text" placeholder="Choose destination" autocomplete="off" spellcheck="false" />
             <div class="suggestions" id="sug-dest"></div>
           </div>
         </div>
-
-        <button class="go-btn" id="go-btn">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-            <path d="M5 12h14M12 5l7 7-7 7"/>
-          </svg>
-          Get Routes
-        </button>
       </div>
 
-      <div class="route-list" id="route-list">
+      <button class="compute-btn" id="go-btn">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+          <polygon points="5 3 19 12 5 21 5 3"/>
+        </svg>
+        Compute Routes
+      </button>
+    </section>
 
-        <div class="placeholder" id="placeholder">
-          <div class="ph-icon">
-            <svg width="38" height="38" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="0.8">
-              <circle cx="12" cy="12" r="10"/>
-              <path d="M12 8v4l3 3"/>
-              <path d="M3.05 11a9 9 0 1 0 .5-2.7"/>
-            </svg>
-          </div>
-          <p>Enter a start and destination<br/>to explore route options</p>
-        </div>
+    <!-- Divider -->
+    <div class="panel-divider"></div>
 
-        <div class="loading" id="loading" style="display:none">
-          <div class="ring"></div>
-          <span>Computing optimal routes...</span>
-        </div>
+    <!-- Results Section -->
+    <section class="panel-section results-section" id="results-section">
+      <div class="section-label" id="results-label">ROUTE OPTIONS</div>
 
-        <div id="cards"></div>
+      <div class="empty-state" id="empty-state">
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1">
+          <circle cx="12" cy="12" r="10"/>
+          <path d="M12 8v4l3 3"/>
+        </svg>
+        <p>Enter origin and destination<br/>to discover available routes</p>
       </div>
 
-    </div>
+      <div class="loading-state" id="loading-state" style="display:none">
+        <div class="loader"></div>
+        <span>Analysing road network&hellip;</span>
+      </div>
 
-    <div class="panel-foot">
-      <span>Leaflet + OSM</span>
-      <span class="foot-sep"></span>
-      <span>Zero API keys for map</span>
-    </div>
+      <div id="cards"></div>
+    </section>
+
+    <footer class="panel-footer">
+      <span>Leaflet &middot; OSM &middot; OpenWeatherMap AQI</span>
+    </footer>
+
   </aside>
 
-  <div class="map-wrap">
+  <!-- Map -->
+  <div class="map-region">
     <div id="map"></div>
-    <div class="route-pill" id="route-pill" style="display:none">
+    <div class="active-pill" id="active-pill" style="display:none">
       <div class="pill-name" id="pill-name"></div>
+      <div class="pill-sep"></div>
       <div class="pill-stats" id="pill-stats"></div>
     </div>
   </div>

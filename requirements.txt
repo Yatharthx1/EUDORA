@@ -8,4 +8,4 @@ networkx
 matplotlib
 folium
 requests
-fastapi uvicorn 
+ 
