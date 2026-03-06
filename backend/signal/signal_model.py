@@ -95,8 +95,8 @@ class SignalModel:
 
             self.junctions.append({
                 "nodes": cluster,
-                "lat": center_lat,
-                "lng": center_lng
+                "lat":   center_lat,
+                "lng":   center_lng
             })
 
         print(f"Logical junctions formed: {len(self.junctions)}")
@@ -134,8 +134,8 @@ class SignalModel:
         expected_delay = expected_stops * self.avg_wait
 
         return {
-            "signal_count": signal_count,
-            "expected_stops": round(expected_stops, 2),
+            "signal_count":              signal_count,
+            "expected_stops":            round(expected_stops, 2),
             "expected_signal_delay_min": round(expected_delay / 60, 2)
         }
 
@@ -145,17 +145,23 @@ class SignalModel:
 
     def attach_signal_weights(self):
 
-        cluster_nodes = set()
-
-        for junction in self.junctions:
+        # Build node -> junction_id mapping.
+        # Each entry in self.junctions is one physical intersection regardless
+        # of whether it came from a single manual entry or multiple OSM nodes
+        # that were clustered together. Storing this id on every edge lets the
+        # routing engine deduplicate signal counts by junction rather than by
+        # edge, which prevents over-counting multi-node OSM intersections.
+        node_to_junction = {}
+        for jid, junction in enumerate(self.junctions):
             for node in junction["nodes"]:
-                cluster_nodes.add(node)
+                node_to_junction[node] = jid
 
         for u, v, k, data in self.G.edges(keys=True, data=True):
 
-            if v in cluster_nodes:
+            if v in node_to_junction:
 
                 data["signal_presence"] = 1
+                data["junction_id"]     = node_to_junction[v]
 
                 expected_delay_min = (
                     self.stop_prob *
@@ -165,9 +171,10 @@ class SignalModel:
             else:
 
                 data["signal_presence"] = 0
-                expected_delay_min = 0.0
+                data["junction_id"]     = None
+                expected_delay_min      = 0.0
 
-            data["signal_delay"] = expected_delay_min
+            data["signal_delay"]     = expected_delay_min
             data["time_with_signal"] = data["base_time"] + expected_delay_min
 
-        print("Signal weights attached to graph.")
+        print("Signal weights attached to graph.")  

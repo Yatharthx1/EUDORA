@@ -7,7 +7,6 @@ from backend.pollution.pollution_model import PollutionModel
 from fastapi.middleware.cors import CORSMiddleware
 
 
-
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # ---- startup ----

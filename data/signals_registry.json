@@ -1269,7 +1269,127 @@
       "yellow_time": 5,
       "red_time": 75,
       "start_reference": "08:30:00"
-    }   
+    },  
+            "manual_Bada_Ganpati_square": {
+      "lat": 22.720672023455876,       
+      "lng": 75.84163727969643,        
+      "source": "manual",
+      "cycle_time": 150,
+      "green_time": 70,
+      "yellow_time": 5,
+      "red_time": 75,
+      "start_reference": "08:30:00"
+    },
+           "manual_Ram_Chandra_Nagar_Square": {
+      "lat": 22.722226677327665,      
+      "lng": 75.83456973582757,     
+      "source": "manual",
+      "cycle_time": 150,
+      "green_time": 70,
+      "yellow_time": 5,
+      "red_time": 75,
+      "start_reference": "08:30:00"
+    },
+        "manual_Kalani_Nagar_Square": {
+      "lat": 22.724854308577537,      
+      "lng": 75.82431163527743,     
+      "source": "manual",
+      "cycle_time": 150,
+      "green_time": 70,
+      "yellow_time": 5,
+      "red_time": 75,
+      "start_reference": "08:30:00"
+    },
+      "manual_Bangarda_Square": {
+      "lat": 22.753387993071247,      
+      "lng": 75.80369434261405,     
+      "source": "manual",
+      "cycle_time": 150,
+      "green_time": 70,
+      "yellow_time": 5,
+      "red_time": 75,
+      "start_reference": "08:30:00"
+    },
+    "manual_Luv_Kush_Square": {
+      "lat": 22.789793692486157,     
+      "lng": 75.84736796024465, 
+      "source": "manual",
+      "cycle_time": 150,
+      "green_time": 70,
+      "yellow_time": 5,
+      "red_time": 75,
+      "start_reference": "08:30:00"
+    },
+     "manual_Mhow_Naka_Square": {
+      "lat": 22.7054109138533,    
+      "lng": 75.84361435677616, 
+      "source": "manual",
+      "cycle_time": 150,
+      "green_time": 70,
+      "yellow_time": 5,
+      "red_time": 75,
+      "start_reference": "08:30:00"
+    },
+     "manual_Palsikar_Square": {
+      "lat": 22.70792209441618,     
+      "lng": 75.85594307770509, 
+      "source": "manual",
+      "cycle_time": 150,
+      "green_time": 70,
+      "yellow_time": 5,
+      "red_time": 75,
+      "start_reference": "08:30:00"
+    },
+    "manual_Gopur_Square": {
+      "lat": 22.683744271004873,     
+      "lng": 75.82940649189443, 
+      "source": "manual",
+      "cycle_time": 150,
+      "green_time": 70,
+      "yellow_time": 5,
+      "red_time": 75,
+      "start_reference": "08:30:00"
+    },
+    "manual_Bholaram_Square": {
+      "lat": 22.688013833978413,    
+      "lng": 75.86267233130755, 
+      "source": "manual",
+      "cycle_time": 150,
+      "green_time": 70,
+      "yellow_time": 5,
+      "red_time": 75,
+      "start_reference": "08:30:00"
+    },
+    "manual_Random_Square": {
+      "lat": 22.73266337771633,     
+      "lng": 75.84639608462564, 
+      "source": "manual",
+      "cycle_time": 150,
+      "green_time": 70,
+      "yellow_time": 5,
+      "red_time": 75,
+      "start_reference": "08:30:00"
+    },
+    "manual_IT_Park_Square": {
+      "lat": 22.685387259834222,    
+      "lng": 75.87336613692939, 
+      "source": "manual",
+      "cycle_time": 150,
+      "green_time": 70,
+      "yellow_time": 5,
+      "red_time": 75,
+      "start_reference": "08:30:00"
+    },
+     "manual_Saket_Square": {
+      "lat": 22.725596558215415,     
+      "lng": 75.89467967432196, 
+      "source": "manual",
+      "cycle_time": 150,
+      "green_time": 70,
+      "yellow_time": 5,
+      "red_time": 75,
+      "start_reference": "08:30:00"
+    }
 
 
 

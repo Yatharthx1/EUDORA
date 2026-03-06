@@ -1,4 +1,4 @@
-fastapi
+
 uvicorn
 networkx
 pydantic
@@ -8,4 +8,3 @@ networkx
 matplotlib
 folium
 requests
-fastapi uvicorn 
