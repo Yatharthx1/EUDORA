@@ -20,15 +20,23 @@ def route_to_geojson(G, route):
 
 
 def extract_signal_coords(G, route):
-    coords = []
+    coords       = []
+    seen_junctions = set()
+
     for i in range(len(route) - 1):
         u, v = route[i], route[i + 1]
         edge = list(G[u][v].values())[0]
-        if edge.get("signal_presence", 0):
+
+        # Only emit one marker per physical junction, matching the fixed
+        # signal count returned by summarize_route().
+        jid = edge.get("junction_id")
+        if jid is not None and jid not in seen_junctions:
+            seen_junctions.add(jid)
             coords.append({
                 "lat": G.nodes[v]["y"],
                 "lng": G.nodes[v]["x"],
             })
+
     return coords
 
 
@@ -109,4 +117,4 @@ def get_signals(request: Request):
             {"lat": j["lat"], "lng": j["lng"]}
             for j in signal_model.junctions
         ]
-    }   
+    }
