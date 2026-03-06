@@ -1389,7 +1389,18 @@
       "yellow_time": 5,
       "red_time": 75,
       "start_reference": "08:30:00"
+    },
+     "manual_Nandlalpura_Square": {
+      "lat": 22.716526529831192,    
+      "lng": 75.85800651748649, 
+      "source": "manual",
+      "cycle_time": 150,
+      "green_time": 70,
+      "yellow_time": 5,
+      "red_time": 75,
+      "start_reference": "08:30:00"
     }
+
 
 
 
