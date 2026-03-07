@@ -72,25 +72,29 @@ def get_routes(
         fastest = weighted_directional_route(
             G, start_lat, start_lng, end_lat, end_lng,
             w_time=1.0, w_signal=0.1, w_turn=0.2,
-            w_hierarchy=0.3, w_pollution=0.05
+            w_hierarchy=0.8,   # was 0.3 — needs lever to discourage true bypasses
+            w_pollution=0.05
         )
 
         least_signal = weighted_directional_route(
             G, start_lat, start_lng, end_lat, end_lng,
             w_time=0.4, w_signal=3.0, w_turn=0.8,
-            w_hierarchy=1.2, w_pollution=0.2
+            w_hierarchy=2.0,   # was 1.2 — motorways have no signals so w_signal alone rewards them
+            w_pollution=0.2
         )
 
         least_pollution = weighted_directional_route(
             G, start_lat, start_lng, end_lat, end_lng,
             w_time=0.4, w_signal=0.2, w_turn=0.8,
-            w_hierarchy=1.5, w_pollution=3.0
+            w_hierarchy=2.5,   # was 1.5 — motorway pollution is so low w_pollution pulls hard
+            w_pollution=3.0
         )
 
         overall_best = weighted_directional_route(
             G, start_lat, start_lng, end_lat, end_lng,
-            w_time=1.0, w_signal=1.2, w_turn=0.6,
-            w_hierarchy=1.0, w_pollution=1.2
+             w_time=1.0, w_signal=1.2, w_turn=0.6,
+        w_hierarchy=1.8,   # was 1.0 — multiple weights rewarding motorways simultaneously
+        w_pollution=1.2
         )
 
         if not all([fastest, least_signal, least_pollution, overall_best]):
