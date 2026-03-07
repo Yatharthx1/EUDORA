@@ -1,19 +1,27 @@
 /* ============================================================
    EUDORA — app.js
-   Theme toggle + Leaflet + Nominatim + glowing animated routes
+   LocationIQ geocoding · Leaflet · Glowing animated routes
    ============================================================ */
 
-const API_BASE  = 'http://localhost:8000';
-const NOMINATIM = 'https://nominatim.openstreetmap.org/search';
-const VIEWBOX   = '75.7,22.5,76.1,22.9';
+const API_BASE = 'http://localhost:8000';
 
+// ── LocationIQ ────────────────────────────────────────────────
+// Replace with your LocationIQ token from https://locationiq.com
+const LOCATIONIQ_TOKEN = 'YOUR_LOCATIONIQ_TOKEN';
+const LOCATIONIQ_URL   = 'https://api.locationiq.com/v1/autocomplete';
+
+// Bias search toward Indore bbox
+const INDORE_LAT = 22.7196;
+const INDORE_LON = 75.8577;
+
+// ── Route config ──────────────────────────────────────────────
 const ROUTE_CFG = {
   fastest: {
     label: 'Fastest',
     desc:  'Minimum travel time',
-    color: '#f5a623',
+    color: '#f0a500',
     weight: 4,
-    icon: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+    icon: `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
              <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/>
            </svg>`,
   },
@@ -22,7 +30,7 @@ const ROUTE_CFG = {
     desc:  'Fewer traffic lights',
     color: '#0bbfb0',
     weight: 4,
-    icon: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+    icon: `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
              <rect x="9" y="2" width="6" height="20" rx="3"/>
              <circle cx="12" cy="7" r="1.5" fill="currentColor"/>
              <circle cx="12" cy="12" r="1.5" fill="currentColor"/>
@@ -34,16 +42,16 @@ const ROUTE_CFG = {
     desc:  'Lowest pollution exposure',
     color: '#22c55e',
     weight: 4,
-    icon: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+    icon: `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
            </svg>`,
   },
   overall_best: {
     label: 'Best Overall',
     desc:  'Balanced across all factors',
-    color: '#6366f1',
+    color: '#7c6aff',
     weight: 5,
-    icon: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+    icon: `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
              <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
            </svg>`,
   },
@@ -54,7 +62,7 @@ const AQI_MAP = {
   'Poor': 'aqi-4', 'Very Poor': 'aqi-5',
 };
 
-// ---- State ----
+// ── State ─────────────────────────────────────────────────────
 let map          = null;
 let tileLayer    = null;
 let polylines    = {};
@@ -76,25 +84,17 @@ const TILES = {
   light: 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
 };
 
-const TILE_ATTR = '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> &copy; <a href="https://carto.com/">CARTO</a>';
+const TILE_ATTR = '&copy; <a href="https://osm.org/copyright">OSM</a> &copy; <a href="https://carto.com/">CARTO</a>';
 
 function applyTheme(dark) {
   isDark = dark;
   document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
-
-  if (tileLayer && map) {
-    map.removeLayer(tileLayer);
-  }
-
+  if (tileLayer && map) map.removeLayer(tileLayer);
   tileLayer = L.tileLayer(dark ? TILES.dark : TILES.light, {
     attribution: TILE_ATTR,
     subdomains: 'abcd',
     maxZoom: 19,
   }).addTo(map);
-}
-
-function toggleTheme() {
-  applyTheme(!isDark);
 }
 
 // ============================================================
@@ -103,25 +103,21 @@ function toggleTheme() {
 
 function initMap() {
   map = L.map('map', {
-    center: [22.7196, 75.8577],
+    center: [INDORE_LAT, INDORE_LON],
     zoom: 13,
     zoomControl: true,
   });
-
   applyTheme(true);
 }
 
 // ============================================================
 // GLOWING POLYLINES
-// Double layer: thick blurred glow + sharp line on top
 // ============================================================
 
 function injectGlowFilter(key, color) {
   const id  = `ef-${key}`;
   const svg = document.querySelector('.leaflet-overlay-pane svg');
-  if (!svg) return;
-
-  if (document.getElementById(id)) return;
+  if (!svg || document.getElementById(id)) return;
 
   let defs = svg.querySelector('defs');
   if (!defs) {
@@ -134,9 +130,9 @@ function injectGlowFilter(key, color) {
   f.setAttribute('x', '-60%'); f.setAttribute('y', '-60%');
   f.setAttribute('width', '220%'); f.setAttribute('height', '220%');
   f.innerHTML = `
-    <feGaussianBlur in="SourceGraphic" stdDeviation="5" result="b"/>
+    <feGaussianBlur in="SourceGraphic" stdDeviation="4" result="b"/>
     <feColorMatrix in="b" type="matrix"
-      values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 20 -6" result="g"/>
+      values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 22 -7" result="g"/>
     <feMerge><feMergeNode in="g"/><feMergeNode in="SourceGraphic"/></feMerge>
   `;
   defs.appendChild(f);
@@ -150,7 +146,7 @@ function animateDraw(poly) {
   el.style.strokeDasharray  = len;
   el.style.strokeDashoffset = len;
   requestAnimationFrame(() => requestAnimationFrame(() => {
-    el.style.transition = 'stroke-dashoffset 0.85s cubic-bezier(0.4,0,0.2,1)';
+    el.style.transition = 'stroke-dashoffset 0.9s cubic-bezier(0.4,0,0.2,1)';
     el.style.strokeDashoffset = '0';
   }));
 }
@@ -177,13 +173,19 @@ function drawRoutes(data) {
     coords.forEach(c => bounds.extend(c));
 
     const glowPoly = L.polyline(coords, {
-      color: cfg.color, weight: cfg.weight + 12,
-      opacity: 0, lineCap: 'round', lineJoin: 'round',
+      color: cfg.color,
+      weight: cfg.weight + 14,
+      opacity: 0,
+      lineCap: 'round',
+      lineJoin: 'round',
     }).addTo(map);
 
     const linePoly = L.polyline(coords, {
-      color: cfg.color, weight: cfg.weight,
-      opacity: 0.15, lineCap: 'round', lineJoin: 'round',
+      color: cfg.color,
+      weight: cfg.weight,
+      opacity: 0.12,
+      lineCap: 'round',
+      lineJoin: 'round',
     }).addTo(map);
 
     linePoly.on('click', () => selectRoute(key));
@@ -192,14 +194,10 @@ function drawRoutes(data) {
     polylines[key] = { glow: glowPoly, line: linePoly };
   });
 
-  map.fitBounds(bounds, { padding: [60, 60] });
+  map.fitBounds(bounds, { padding: [64, 64] });
 
-  // Inject SVG glow filters after DOM is ready
   requestAnimationFrame(() => {
-    order.forEach(key => {
-      const cfg = ROUTE_CFG[key];
-      injectGlowFilter(key, cfg.color);
-    });
+    order.forEach(key => injectGlowFilter(key, ROUTE_CFG[key].color));
   });
 }
 
@@ -209,17 +207,16 @@ function activatePolyline(key) {
     const isActive = k === key;
 
     if (isActive) {
-      glow.setStyle({ opacity: 0.25, weight: cfg.weight + 16 });
+      glow.setStyle({ opacity: 0.22, weight: cfg.weight + 18 });
       const ge = glow.getElement();
       if (ge) ge.style.filter = `url(#ef-${k})`;
-
       line.setStyle({ opacity: 1, weight: cfg.weight + 1.5 });
       glow.bringToFront();
       line.bringToFront();
       animateDraw(line);
     } else {
       glow.setStyle({ opacity: 0 });
-      line.setStyle({ opacity: 0.1, weight: cfg.weight });
+      line.setStyle({ opacity: 0.08, weight: cfg.weight });
       const ge = glow.getElement();
       if (ge) ge.style.filter = '';
     }
@@ -231,24 +228,24 @@ function activatePolyline(key) {
 // ============================================================
 
 function signalIcon() {
-  const color = isDark ? '#f5a623' : '#d97706';
+  const color = isDark ? '#f0a500' : '#c97800';
   return L.divIcon({
     className: '',
     html: `<div style="
-      width:10px;height:10px;
+      width:9px;height:9px;
       background:${color};
       border-radius:50%;
-      border:2px solid ${color}44;
-      box-shadow:0 0 8px ${color}cc, 0 0 3px ${color};
+      border:1.5px solid ${color}55;
+      box-shadow:0 0 8px ${color}cc,0 0 3px ${color};
     "></div>`,
-    iconSize: [10, 10],
-    iconAnchor: [5, 5],
+    iconSize: [9, 9],
+    iconAnchor: [4.5, 4.5],
   });
 }
 
 function renderSignals(coords) {
   if (signalLayer) { signalLayer.remove(); signalLayer = null; }
-  if (!coords || !coords.length) return;
+  if (!coords?.length) return;
   signalLayer = L.layerGroup();
   coords.forEach(s => {
     L.marker([s.lat, s.lng], { icon: signalIcon() })
@@ -261,7 +258,7 @@ function renderSignals(coords) {
 }
 
 // ============================================================
-// MARKERS
+// PIN MARKERS
 // ============================================================
 
 function pinIcon(color, letter) {
@@ -272,12 +269,13 @@ function pinIcon(color, letter) {
       background:${color};
       border-radius:50% 50% 50% 0;
       transform:rotate(-45deg);
-      border:2.5px solid rgba(255,255,255,0.9);
-      box-shadow:0 0 12px ${color}99,0 3px 10px rgba(0,0,0,0.35);
+      border:2px solid rgba(255,255,255,0.85);
+      box-shadow:0 0 14px ${color}99,0 3px 12px rgba(0,0,0,0.4);
       display:flex;align-items:center;justify-content:center;
     "><span style="
-      transform:rotate(45deg);font-family:'Syne',sans-serif;
-      font-weight:800;font-size:11px;color:#fff;
+      transform:rotate(45deg);
+      font-family:'Archivo Black',sans-serif;
+      font-size:10px;color:#fff;
       display:block;line-height:30px;text-align:center;
     ">${letter}</span></div>`,
     iconSize: [30, 30],
@@ -290,10 +288,10 @@ function placeMarkers() {
   if (markers.dest)   markers.dest.remove();
   if (originCoords)
     markers.origin = L.marker([originCoords.lat, originCoords.lon],
-      { icon: pinIcon('#6366f1', 'A') }).addTo(map);
+      { icon: pinIcon('#7c6aff', 'A') }).addTo(map);
   if (destCoords)
     markers.dest = L.marker([destCoords.lat, destCoords.lon],
-      { icon: pinIcon('#f5a623', 'B') }).addTo(map);
+      { icon: pinIcon('#f0a500', 'B') }).addTo(map);
 }
 
 // ============================================================
@@ -316,7 +314,7 @@ function renderCards(data) {
     if (!route) return;
 
     const card = document.createElement('div');
-    card.className  = 'rcard';
+    card.className   = 'rcard';
     card.dataset.key = key;
     card.style.setProperty('--accent', cfg.color);
 
@@ -349,8 +347,8 @@ function renderCards(data) {
         </div>
       </div>
       <span class="aqi-pill ${AQI_MAP[route.aqi_label] || 'aqi-3'}">
-        <svg width="6" height="6" viewBox="0 0 8 8"><circle cx="4" cy="4" r="4" fill="currentColor"/></svg>
-        AQI ${route.aqi_index} &mdash; ${route.aqi_label}
+        <svg width="5" height="5" viewBox="0 0 8 8"><circle cx="4" cy="4" r="4" fill="currentColor"/></svg>
+        AQI ${route.aqi_index} — ${route.aqi_label}
       </span>
     `;
 
@@ -375,7 +373,10 @@ function selectRoute(key) {
 
   const pill = document.getElementById('active-pill');
   pill.style.display = 'flex';
-  document.getElementById('pill-name').textContent = cfg.label + ' Route';
+
+  document.getElementById('pill-color').style.background = cfg.color;
+  document.getElementById('pill-name').textContent = cfg.label;
+
   document.getElementById('pill-stats').innerHTML = `
     <div class="pill-stat">
       <div class="pill-dot" style="background:${cfg.color};box-shadow:0 0 5px ${cfg.color}"></div>
@@ -388,21 +389,42 @@ function selectRoute(key) {
 }
 
 // ============================================================
-// NOMINATIM
+// LOCATIONIQ SEARCH
 // ============================================================
 
-async function searchNominatim(q) {
+async function searchLocationIQ(q) {
   if (!q || q.length < 3) return [];
   try {
-    const url = `${NOMINATIM}?q=${encodeURIComponent(q)}&format=json&limit=5&viewbox=${VIEWBOX}&bounded=0&addressdetails=1&countrycodes=in`;
-    const res = await fetch(url, { headers: { 'Accept-Language': 'en' } });
+    const params = new URLSearchParams({
+      key:               LOCATIONIQ_TOKEN,
+      q:                 q,
+      limit:             6,
+      dedupe:            1,
+      'accept-language': 'en',
+      countrycodes:      'in',
+      lat:               INDORE_LAT,
+      lon:               INDORE_LON,
+    });
+    const res = await fetch(`${LOCATIONIQ_URL}?${params}`);
+    if (!res.ok) return [];
     return await res.json();
   } catch { return []; }
 }
 
-function setupSearch(inputId, sugId, onSelect) {
-  const input = document.getElementById(inputId);
-  const sug   = document.getElementById(sugId);
+function setupSearch(inputId, sugId, onSelect, clearBtnId) {
+  const input    = document.getElementById(inputId);
+  const sug      = document.getElementById(sugId);
+  const clearBtn = document.getElementById(clearBtnId);
+
+  // Clear button
+  if (clearBtn) {
+    clearBtn.addEventListener('click', () => {
+      input.value = '';
+      onSelect(null);
+      closeSug(sug);
+      input.focus();
+    });
+  }
 
   input.addEventListener('input', () => {
     clearTimeout(sugTimers[inputId]);
@@ -410,17 +432,27 @@ function setupSearch(inputId, sugId, onSelect) {
     if (q.length < 3) { closeSug(sug); return; }
 
     sugTimers[inputId] = setTimeout(async () => {
-      const results = await searchNominatim(q);
-      if (!results.length) { closeSug(sug); return; }
+      const results = await searchLocationIQ(q);
+      if (!results?.length) { closeSug(sug); return; }
 
       sug.innerHTML = '';
       results.forEach(item => {
-        const addr = item.address || {};
-        const main = item.name || addr.road || item.display_name.split(',')[0];
-        const sub  = [addr.suburb, addr.city_district, addr.city].filter(Boolean).slice(0,2).join(', ');
-        const div  = document.createElement('div');
+        const addr    = item.address || {};
+        const main    = item.display_place || item.display_name.split(',')[0];
+        const subParts = [addr.suburb, addr.city_district, addr.city].filter(Boolean).slice(0, 2);
+        const sub     = subParts.join(', ');
+
+        const div = document.createElement('div');
         div.className = 'sug-item';
-        div.innerHTML = `<strong>${main}</strong>${sub ? `<br><span style="font-size:10.5px;opacity:0.65">${sub}</span>` : ''}`;
+        div.innerHTML = `
+          <svg class="sug-icon" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/>
+          </svg>
+          <div>
+            <div class="sug-main">${main}</div>
+            ${sub ? `<div class="sug-sub">${sub}</div>` : ''}
+          </div>
+        `;
         div.addEventListener('mousedown', e => {
           e.preventDefault();
           input.value = main + (sub ? `, ${sub}` : '');
@@ -429,11 +461,12 @@ function setupSearch(inputId, sugId, onSelect) {
         });
         sug.appendChild(div);
       });
+
       sug.classList.add('open');
-    }, 280);
+    }, 250);
   });
 
-  input.addEventListener('blur', () => setTimeout(() => closeSug(sug), 150));
+  input.addEventListener('blur', () => setTimeout(() => closeSug(sug), 160));
 }
 
 function closeSug(el) {
@@ -447,7 +480,7 @@ function closeSug(el) {
 
 async function handleSearch() {
   if (!originCoords || !destCoords) {
-    toast('Select both locations from the dropdown suggestions.');
+    toast('Select both locations from the suggestions dropdown.');
     return;
   }
 
@@ -472,7 +505,7 @@ async function handleSearch() {
     drawRoutes(data);
     placeMarkers();
 
-    setTimeout(() => selectRoute('overall_best'), 120);
+    setTimeout(() => selectRoute('overall_best'), 130);
 
   } catch (err) {
     setState('empty');
@@ -481,7 +514,7 @@ async function handleSearch() {
 }
 
 // ============================================================
-// HELPERS
+// STATE
 // ============================================================
 
 function setState(s) {
@@ -492,21 +525,52 @@ function setState(s) {
   if (s !== 'results') document.getElementById('active-pill').style.display = 'none';
 }
 
+// ============================================================
+// TOAST
+// ============================================================
+
 function toast(msg) {
   const old = document.getElementById('_toast');
   if (old) old.remove();
   const t = document.createElement('div');
   t.id = '_toast';
   Object.assign(t.style, {
-    position: 'fixed', bottom: '28px', right: '22px', zIndex: '9999',
-    background: 'var(--bg-card)', border: '1px solid var(--border-2)',
-    color: 'var(--text-1)', fontFamily: "'DM Sans',sans-serif",
-    fontSize: '12.5px', padding: '11px 16px', borderRadius: '10px',
-    boxShadow: 'var(--shadow-card)', maxWidth: '280px', lineHeight: '1.5',
+    position:     'fixed',
+    bottom:       '28px',
+    right:        '22px',
+    zIndex:       '9999',
+    background:   'var(--bg-card)',
+    border:       '1px solid var(--border-2)',
+    color:        'var(--text-1)',
+    fontFamily:   "'IBM Plex Mono', monospace",
+    fontSize:     '11px',
+    letterSpacing:'0.3px',
+    padding:      '11px 16px',
+    borderRadius: '8px',
+    boxShadow:    'var(--shadow-card)',
+    maxWidth:     '280px',
+    lineHeight:   '1.6',
   });
   t.textContent = msg;
   document.body.appendChild(t);
-  setTimeout(() => t.remove(), 4000);
+  setTimeout(() => t?.remove(), 4000);
+}
+
+// ============================================================
+// CLOCK
+// ============================================================
+
+function startClock() {
+  const el = document.getElementById('footer-clock');
+  if (!el) return;
+  const tick = () => {
+    const now = new Date();
+    el.textContent = now.toLocaleTimeString('en-IN', {
+      hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false,
+    });
+  };
+  tick();
+  setInterval(tick, 1000);
 }
 
 // ============================================================
@@ -515,12 +579,13 @@ function toast(msg) {
 
 document.addEventListener('DOMContentLoaded', () => {
   initMap();
+  startClock();
 
-  setupSearch('input-origin', 'sug-origin', c => { originCoords = c; });
-  setupSearch('input-dest',   'sug-dest',   c => { destCoords   = c; });
+  setupSearch('input-origin', 'sug-origin', c => { originCoords = c; }, 'clear-origin');
+  setupSearch('input-dest',   'sug-dest',   c => { destCoords   = c; }, 'clear-dest');
 
   document.getElementById('go-btn').addEventListener('click', handleSearch);
-  document.getElementById('theme-toggle').addEventListener('click', toggleTheme);
+  document.getElementById('theme-toggle').addEventListener('click', () => applyTheme(!isDark));
 
   document.getElementById('swap-btn').addEventListener('click', () => {
     const oi = document.getElementById('input-origin');

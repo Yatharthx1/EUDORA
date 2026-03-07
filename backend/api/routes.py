@@ -79,8 +79,8 @@ def get_routes(
         # ── Step 1: run fastest with no distance constraint ───────────────
         fastest = weighted_directional_route(
             G, start_lat, start_lng, end_lat, end_lng,
-            w_time=1.0, w_signal=0.1, w_turn=0.2,
-            w_hierarchy=0.3, w_pollution=0.05,
+            w_time=1.0, w_signal=0.0, w_turn=0.0,
+            w_hierarchy=0.3, w_pollution=0.0,
             max_distance_m=None,
         )
 
@@ -99,7 +99,7 @@ def get_routes(
         # w_hierarchy=0 — don't punish side streets, that's the whole point.
         least_signal = weighted_directional_route(
             G, start_lat, start_lng, end_lat, end_lng,
-            w_time=0.3, w_signal=8.0, w_turn=0.5,
+            w_time=0.3, w_signal=8.0, w_turn=0.6,
             w_hierarchy=0.0, w_pollution=0.1,
             max_distance_m=fastest_m * DISTANCE_BUDGET_FACTOR_SIGNAL,
         )
@@ -108,7 +108,7 @@ def get_routes(
         # avoid signals (idling = emissions). w_hierarchy=0 same reasoning.
         least_pollution = weighted_directional_route(
             G, start_lat, start_lng, end_lat, end_lng,
-            w_time=0.3, w_signal=0.5, w_turn=0.5,
+            w_time=0.3, w_signal=0.5, w_turn=0.3,
             w_hierarchy=0.0, w_pollution=8.0,
             max_distance_m=fastest_m * DISTANCE_BUDGET_FACTOR_POLLUTION,
         )

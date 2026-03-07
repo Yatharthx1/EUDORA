@@ -2,47 +2,27 @@
 TrafficEnricher
 
 Queries TomTom Traffic Flow API every 3 hours for ~150 sample points
-on Indore's major roads and updates traffic_factor on every graph edge
-via inverse-distance weighting.
+on Indore's major roads and updates every graph edge via IDW.
 
-pollution_model.attach_pollution_weights() is called automatically
-after each update so pollution_delay reflects current congestion.
+What TomTom drives
+------------------
+For each enriched edge (within 800m of a sample point):
+
+  base_time   ← length / IDW(freeFlowSpeed)   — no-congestion travel time
+  live_time   ← length / IDW(currentSpeed)    — actual travel time right now
+  traffic_factor ← base_volume × emission_factor(congestion)  — for pollution
+
+For unenriched edges (deep residential, service roads):
+  base_time   ← from graph_builder fallback speed table (unchanged)
+  live_time   ← not set (routing_engine falls back to base_time)
+
+Routing engine uses:
+  w_time × (live_time or base_time)
+
+So TomTom data directly affects both route selection and displayed time.
 
 Budget: 150 points × 8 refreshes/day = 1,200 req/day (of 2,500 free)
-
-Flow
-----
-1. At startup: _select_sample_nodes() picks ~150 nodes on major roads,
-   spread across the city grid.
-
-2. Every 3 hours: enrich() queries TomTom for each sample node,
-   builds a congestion map, then calls _update_graph_traffic_factors()
-   which uses IDW to assign congestion to every edge.
-
-3. After update: calls pollution_model.attach_pollution_weights()
-   so pollution_delay is immediately recalculated with new traffic data.
-
-Integration (in main.py)
-------------------------
-    from backend.traffic_enricher import TrafficEnricher
-    import asyncio
-
-    @app.on_event("startup")
-    async def startup():
-        app.state.G               = build_graph()
-        app.state.signal_model    = SignalModel(app.state.G)
-        app.state.signal_model.attach_signal_weights()
-        app.state.pollution_model = PollutionModel(app.state.G)
-        app.state.pollution_model.attach_pollution_weights()
-
-        app.state.enricher = TrafficEnricher(
-            graph           = app.state.G,
-            pollution_model = app.state.pollution_model,
-            api_key         = os.environ["TOMTOM_API_KEY"],
-        )
-        # Run first enrichment immediately, then every 3 hours
-        await app.state.enricher.enrich()
-        asyncio.create_task(app.state.enricher.run_scheduler())
+Disk cache: restarts cost 0 API calls if cache < 3 hours old.
 """
 
 from __future__ import annotations
@@ -66,7 +46,6 @@ TOMTOM_FLOW_URL = (
     "/flowSegmentData/absolute/10/json"
 )
 
-# Road types to sample — major roads only to stay within API budget
 SAMPLE_ROAD_TYPES = {
     "motorway", "motorway_link",
     "trunk", "trunk_link",
@@ -74,55 +53,41 @@ SAMPLE_ROAD_TYPES = {
     "secondary", "secondary_link",
 }
 
-# How many sample nodes to pick (keep × 8 refreshes/day < 2500)
-MAX_SAMPLE_NODES = 150
-
-# Refresh interval in seconds (3 hours)
-REFRESH_INTERVAL = 3 * 60 * 60
-
-# Disk cache — avoids hitting TomTom on every server restart during development
-CACHE_FILE = Path("cache/traffic_cache.json")
-
-# IDW power parameter — higher = sample points influence smaller area
-IDW_POWER = 2.0
-
-# Minimum congestion ratio floor (avoids division explosion)
-MIN_CONGESTION_RATIO = 0.15
-
-# Emission factor exponent — tuned so:
-#   free flow  (ratio=1.0) → factor=1.0
-#   moderate   (ratio=0.6) → factor=1.5
-#   heavy      (ratio=0.3) → factor=2.7
+MAX_SAMPLE_NODES  = 150
+REFRESH_INTERVAL  = 3 * 60 * 60        # 3 hours
+CACHE_FILE        = Path("cache/traffic_cache.json")
+IDW_POWER         = 2.0
+IDW_RADIUS_M      = 800.0
+MIN_SPEED_KMPH    = 2.0                 # floor to avoid division by zero
+MIN_CONGESTION    = 0.15
 EMISSION_EXPONENT = 0.7
 
-# Max radius (metres) within which a sample point influences an edge
-IDW_RADIUS_M = 800.0
+# Road traffic volume for pollution model
+ROAD_TRAFFIC_VOLUME = {
+    "motorway":       0.7,  "motorway_link":  0.6,
+    "trunk":          0.9,  "trunk_link":     0.8,
+    "primary":        1.8,  "primary_link":   1.5,
+    "secondary":      1.5,  "secondary_link": 1.3,
+    "tertiary":       1.1,  "tertiary_link":  1.0,
+    "residential":    0.6,  "living_street":  0.4,
+    "service":        0.4,  "unclassified":   0.8,
+}
+DEFAULT_TRAFFIC_VOLUME = 0.9
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
-def _haversine_m(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
-    """Haversine distance in metres."""
+def _haversine_m(lat1, lon1, lat2, lon2) -> float:
     R  = 6_371_000.0
-    φ1 = math.radians(lat1)
-    φ2 = math.radians(lat2)
+    φ1 = math.radians(lat1); φ2 = math.radians(lat2)
     dφ = math.radians(lat2 - lat1)
     dλ = math.radians(lon2 - lon1)
-    a  = math.sin(dφ / 2) ** 2 + math.cos(φ1) * math.cos(φ2) * math.sin(dλ / 2) ** 2
-    return R * 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+    a  = math.sin(dφ/2)**2 + math.cos(φ1)*math.cos(φ2)*math.sin(dλ/2)**2
+    return R * 2 * math.atan2(math.sqrt(a), math.sqrt(1-a))
 
 
 def _emission_factor(congestion_ratio: float) -> float:
-    """
-    Convert congestion ratio to an emission multiplier.
-    Stop-start low-speed driving emits exponentially more than free flow.
-
-    congestion_ratio = current_speed / free_flow_speed
-      1.0 → 1.00×  (free flow)
-      0.6 → 1.50×  (moderate congestion)
-      0.3 → 2.70×  (heavy congestion)
-    """
-    ratio = max(congestion_ratio, MIN_CONGESTION_RATIO)
+    ratio = max(congestion_ratio, MIN_CONGESTION)
     return 1.0 / (ratio ** EMISSION_EXPONENT)
 
 
@@ -130,270 +95,175 @@ def _emission_factor(congestion_ratio: float) -> float:
 
 class TrafficEnricher:
 
-    def __init__(
-        self,
-        graph,
-        pollution_model,
-        api_key: str,
-        refresh_interval: int = REFRESH_INTERVAL,
-    ) -> None:
+    def __init__(self, graph, pollution_model, api_key: str,
+                 refresh_interval: int = REFRESH_INTERVAL) -> None:
         self.G                = graph
         self.pollution_model  = pollution_model
         self.api_key          = api_key
         self.refresh_interval = refresh_interval
 
-        # Pre-computed at init — doesn't change unless graph changes
-        self._sample_nodes: list[dict] = []
-        self._edge_base_volumes: dict  = {}
-
-        self._last_enriched: Optional[float] = None
-        self._enrichment_count: int = 0
+        self._sample_nodes:      list[dict]       = []
+        self._edge_base_volumes: dict             = {}
+        self._last_enriched:     Optional[float]  = None
+        self._enrichment_count:  int              = 0
 
         self._select_sample_nodes()
         self._cache_edge_base_volumes()
 
-    # ── Setup ─────────────────────────────────────────────────────────────────
+    # ── Node selection ────────────────────────────────────────────────────────
 
     def _select_sample_nodes(self) -> None:
         """
-        Place sample points every CORRIDOR_SPACING_M metres along each
-        named major corridor in Indore, then fill remaining budget with
-        the highest-junction nodes on unnamed major roads.
-
-        Corridors are matched by edge 'name' or 'ref' tags — using the
-        actual strings present in the Indore OSMnx graph rather than a
-        generic road-type filter.
+        Place sample points every 400m along each named Indore corridor,
+        then fill remaining budget with highest-junction major road nodes.
         """
-        # ── Corridor definitions ──────────────────────────────────────────
-        # Tuples of (name_fragments, refs) — both matched as substrings.
-        # Priority order: high-traffic corridors first.
         CORRIDORS = [
-            # AB Road — two name variants + NH52 ref
             (["A. B. Road", "Old A. B. Road"], ["NH52"]),
-            # Ring roads
-            (["Ring Road", "MR10"], []),
-            # Bypasses
+            (["Ring Road", "MR10"],            []),
             (["Indore Bypass", "Mhow Bypass"], []),
-            # Major entry/exit corridors
-            (["Nemawar Road"], ["NH47"]),
-            (["Rau-Indore road"], ["SH38", "SH38A"]),
-            (["Ujjain Road"], ["SH27"]),
-            (["Kanadia Road"], []),
-            (["Airport Road"], []),
-            # Inner city lifelines
+            (["Nemawar Road"],                 ["NH47"]),
+            (["Rau-Indore road"],              ["SH38", "SH38A"]),
+            (["Ujjain Road"],                  ["SH27"]),
+            (["Kanadia Road"],                 []),
+            (["Airport Road"],                 []),
             (["Mahatma Gandhi Marg", "M.G.ROAD"], []),
-            (["60 Feet Road"], []),
-            (["Annapurna Road"], []),
-            (["Jawahar Marg"], []),
+            (["60 Feet Road"],                 []),
+            (["Annapurna Road"],               []),
+            (["Jawahar Marg"],                 []),
             (["Indore - Depalpur - Ingoriya Road"], []),
-            (["Ahmedabad - Indore Road"], []),
-            (["Sanwer - Kshipra Road"], []),
-            (["Shaheed Tantiya Bhil Road"], []),
+            (["Ahmedabad - Indore Road"],      []),
+            (["Sanwer - Kshipra Road"],        []),
+            (["Shaheed Tantiya Bhil Road"],    []),
         ]
-
-        # Spacing between sample points along a corridor (metres)
         CORRIDOR_SPACING_M = 400.0
 
-        def _matches_corridor(data: dict, names: list, refs: list) -> bool:
-            edge_name = data.get("name", "") or ""
-            edge_ref  = data.get("ref",  "") or ""
-            if isinstance(edge_name, list): edge_name = " ".join(edge_name)
-            if isinstance(edge_ref,  list): edge_ref  = " ".join(edge_ref)
-            for n in names:
-                if n.lower() in edge_name.lower():
-                    return True
-            for r in refs:
-                if r.lower() in edge_ref.lower():
-                    return True
-            return False
+        def _matches(data, names, refs):
+            name = data.get("name", "") or ""
+            ref  = data.get("ref",  "") or ""
+            if isinstance(name, list): name = " ".join(name)
+            if isinstance(ref,  list): ref  = " ".join(ref)
+            return (any(n.lower() in name.lower() for n in names) or
+                    any(r.lower() in ref.lower()  for r in refs))
 
-        # ── Collect nodes per corridor ────────────────────────────────────
         corridor_nodes: list[dict] = []
-        seen_nodes: set = set()
+        seen: set = set()
 
         for names, refs in CORRIDORS:
-            # Gather all nodes on this corridor's edges
-            c_nodes: list[dict] = []
+            c_nodes = []
             for u, v, data in self.G.edges(data=True):
-                if not _matches_corridor(data, names, refs):
+                if not _matches(data, names, refs):
                     continue
                 for node in (u, v):
-                    if node in seen_nodes:
-                        continue
+                    if node in seen: continue
                     nd = self.G.nodes[node]
-                    c_nodes.append({
-                        "node": node,
-                        "lat":  nd["y"],
-                        "lon":  nd["x"],
-                        "sc":   nd.get("street_count", 2),
-                    })
-                    seen_nodes.add(node)
+                    c_nodes.append({"node": node, "lat": nd["y"],
+                                    "lon": nd["x"], "sc": nd.get("street_count", 2)})
+                    seen.add(node)
 
             if not c_nodes:
                 continue
 
-            # Sort by longitude to walk along the corridor
             c_nodes.sort(key=lambda n: n["lon"])
-
-            # Pick nodes spaced at least CORRIDOR_SPACING_M apart
             selected = [c_nodes[0]]
             for node in c_nodes[1:]:
                 last = selected[-1]
-                dist = _haversine_m(last["lat"], last["lon"],
-                                    node["lat"], node["lon"])
-                if dist >= CORRIDOR_SPACING_M:
+                if _haversine_m(last["lat"], last["lon"],
+                                node["lat"], node["lon"]) >= CORRIDOR_SPACING_M:
                     selected.append(node)
 
             corridor_nodes.extend(selected)
-            logger.debug(
-                "[TrafficEnricher] Corridor %s → %d sample points",
-                names[0], len(selected),
-            )
+            logger.debug("[TrafficEnricher] Corridor %s → %d points",
+                         names[0], len(selected))
 
-        # ── Fill remaining budget with high-junction major road nodes ─────
         remaining = MAX_SAMPLE_NODES - len(corridor_nodes)
         if remaining > 0:
-            fallback_candidates = []
+            fallback = []
             for u, v, data in self.G.edges(data=True):
-                road_type = data.get("highway", "")
-                if isinstance(road_type, list): road_type = road_type[0]
-                if road_type not in SAMPLE_ROAD_TYPES:
-                    continue
+                rt = data.get("highway", "")
+                if isinstance(rt, list): rt = rt[0]
+                if rt not in SAMPLE_ROAD_TYPES: continue
                 for node in (u, v):
-                    if node in seen_nodes:
-                        continue
+                    if node in seen: continue
                     nd = self.G.nodes[node]
-                    fallback_candidates.append({
-                        "node": node,
-                        "lat":  nd["y"],
-                        "lon":  nd["x"],
-                        "sc":   nd.get("street_count", 2),
-                    })
-                    seen_nodes.add(node)
-
-            # Pick highest street_count nodes first (busiest junctions)
-            fallback_candidates.sort(key=lambda n: -n["sc"])
-            corridor_nodes.extend(fallback_candidates[:remaining])
+                    fallback.append({"node": node, "lat": nd["y"],
+                                     "lon": nd["x"], "sc": nd.get("street_count", 2)})
+                    seen.add(node)
+            fallback.sort(key=lambda n: -n["sc"])
+            corridor_nodes.extend(fallback[:remaining])
 
         self._sample_nodes = corridor_nodes[:MAX_SAMPLE_NODES]
-        logger.info(
-            "[TrafficEnricher] Selected %d sample nodes across %d corridors",
-            len(self._sample_nodes), len(CORRIDORS),
-        )
+        logger.info("[TrafficEnricher] Selected %d sample nodes across %d corridors",
+                    len(self._sample_nodes), len(CORRIDORS))
 
     def _cache_edge_base_volumes(self) -> None:
-        """
-        Cache base traffic volume per edge from the road type table.
-        Defined inline to avoid any cross-module import at startup.
-        """
-        ROAD_TRAFFIC_VOLUME = {
-            "motorway":       0.7,
-            "motorway_link":  0.6,
-            "trunk":          0.9,
-            "trunk_link":     0.8,
-            "primary":        1.8,
-            "primary_link":   1.5,
-            "secondary":      1.5,
-            "secondary_link": 1.3,
-            "tertiary":       1.1,
-            "tertiary_link":  1.0,
-            "residential":    0.6,
-            "living_street":  0.4,
-            "service":        0.4,
-            "unclassified":   0.8,
-        }
-        DEFAULT_TRAFFIC_VOLUME = 0.9
-
         for u, v, k, data in self.G.edges(keys=True, data=True):
-            road_type = data.get("highway", "")
-            if isinstance(road_type, list):
-                road_type = road_type[0]
+            rt = data.get("highway", "")
+            if isinstance(rt, list): rt = rt[0]
             self._edge_base_volumes[(u, v, k)] = ROAD_TRAFFIC_VOLUME.get(
-                road_type, DEFAULT_TRAFFIC_VOLUME
-            )
+                rt, DEFAULT_TRAFFIC_VOLUME)
 
     # ── TomTom API ────────────────────────────────────────────────────────────
 
-    async def _fetch_flow(
-        self,
-        client: httpx.AsyncClient,
-        lat: float,
-        lon: float,
-    ) -> Optional[dict]:
-        """
-        Query TomTom Flow API for one point.
-        Returns dict with current_speed, free_flow_speed, confidence,
-        or None on error.
-        """
+    async def _fetch_flow(self, client: httpx.AsyncClient,
+                          lat: float, lon: float) -> Optional[dict]:
         try:
             resp = await client.get(
                 TOMTOM_FLOW_URL,
-                params={
-                    "point": f"{lat},{lon}",
-                    "key":   self.api_key,
-                    "unit":  "KMPH",
-                },
+                params={"point": f"{lat},{lon}", "key": self.api_key, "unit": "KMPH"},
                 timeout=8.0,
             )
             resp.raise_for_status()
             seg = resp.json().get("flowSegmentData", {})
 
-            current   = float(seg.get("currentSpeed",  0))
-            free_flow = float(seg.get("freeFlowSpeed", 1))
-            confidence = float(seg.get("confidence",   1))
+            current   = float(seg.get("currentSpeed",   0))
+            free_flow = float(seg.get("freeFlowSpeed",  1))
+            confidence = float(seg.get("confidence",    1))
 
             if free_flow <= 0:
                 return None
 
             return {
-                "lat":            lat,
-                "lon":            lon,
-                "current_speed":  current,
-                "free_flow_speed": free_flow,
+                "lat":              lat,
+                "lon":              lon,
+                "current_speed":    max(current,   MIN_SPEED_KMPH),
+                "free_flow_speed":  max(free_flow, MIN_SPEED_KMPH),
                 "congestion_ratio": min(1.0, current / free_flow),
-                "confidence":     confidence,
+                "confidence":       confidence,
             }
-
         except Exception as exc:
-            logger.debug("[TrafficEnricher] Flow fetch failed (%s,%s): %s",
-                         lat, lon, exc)
+            logger.debug("[TrafficEnricher] Fetch failed (%s,%s): %s", lat, lon, exc)
             return None
 
     async def _fetch_all_samples(self) -> list[dict]:
-        """
-        Query all sample nodes concurrently with a semaphore to avoid
-        hammering the API (max 20 concurrent requests).
-        """
         semaphore = asyncio.Semaphore(20)
 
         async def _limited(client, node):
             async with semaphore:
                 result = await self._fetch_flow(client, node["lat"], node["lon"])
-                await asyncio.sleep(0.05)   # gentle rate limiting
+                await asyncio.sleep(0.05)
                 return result
 
         async with httpx.AsyncClient() as client:
-            tasks   = [_limited(client, node) for node in self._sample_nodes]
-            results = await asyncio.gather(*tasks)
+            results = await asyncio.gather(
+                *[_limited(client, n) for n in self._sample_nodes])
 
         valid = [r for r in results if r is not None]
-        logger.info(
-            "[TrafficEnricher] Fetched %d/%d sample points successfully",
-            len(valid), len(self._sample_nodes),
-        )
+        logger.info("[TrafficEnricher] Fetched %d/%d sample points successfully",
+                    len(valid), len(self._sample_nodes))
         return valid
 
     # ── Graph update ──────────────────────────────────────────────────────────
 
     def _update_graph_traffic_factors(self, flow_data: list[dict]) -> None:
         """
-        For each edge, compute a congestion factor via IDW from nearby
-        sample points, then set:
+        For each edge, IDW-interpolate TomTom speeds from nearby sample points:
 
-            traffic_factor = base_volume × emission_factor(congestion)
+          base_time  = length / IDW(freeFlowSpeed)   ← true free-flow time
+          live_time  = length / IDW(currentSpeed)    ← real time right now
+          traffic_factor = base_volume × emission_factor(congestion)
 
-        Edges with no sample points within IDW_RADIUS_M fall back to
-        their Gaussian time_multiplier-based traffic_factor (unchanged).
+        Edges outside IDW_RADIUS_M of all samples are left unchanged
+        (graph_builder fallback speeds remain in place).
         """
         if not flow_data:
             logger.warning("[TrafficEnricher] No flow data — skipping update.")
@@ -402,74 +272,74 @@ class TrafficEnricher:
         updated = 0
 
         for u, v, k, data in self.G.edges(keys=True, data=True):
-            # Edge midpoint coordinates
-            node_u = self.G.nodes[u]
-            node_v = self.G.nodes[v]
+            node_u  = self.G.nodes[u]
+            node_v  = self.G.nodes[v]
             mid_lat = (node_u["y"] + node_v["y"]) / 2.0
             mid_lon = (node_u["x"] + node_v["x"]) / 2.0
 
-            # Find sample points within IDW_RADIUS_M
-            weights  = []
-            c_values = []
+            weights     = []
+            curr_speeds = []
+            free_speeds = []
+            c_values    = []
 
             for sample in flow_data:
                 dist = _haversine_m(mid_lat, mid_lon,
                                     sample["lat"], sample["lon"])
                 if dist <= IDW_RADIUS_M:
-                    if dist < 1.0:
-                        dist = 1.0   # avoid division by zero
+                    dist = max(dist, 1.0)
                     w = (1.0 / dist) ** IDW_POWER
                     weights.append(w)
+                    curr_speeds.append(sample["current_speed"])
+                    free_speeds.append(sample["free_flow_speed"])
                     c_values.append(sample["congestion_ratio"])
 
             if not weights:
-                # No nearby TomTom sample — keep existing traffic_factor
-                # but ensure live_time is always present (fall back to base_time)
+                # No nearby TomTom sample — keep fallback base_time,
+                # ensure live_time is at least set to base_time
                 if "live_time" not in data:
                     data["live_time"] = data.get("base_time", 0)
                 continue
 
-            # IDW interpolated congestion ratio
-            congestion = sum(w * c for w, c in zip(weights, c_values)) / sum(weights)
-            base_vol   = self._edge_base_volumes.get((u, v, k), 0.9)
-            emit_f     = _emission_factor(congestion)
+            total_w    = sum(weights)
+            curr_spd   = sum(w * s for w, s in zip(weights, curr_speeds)) / total_w
+            free_spd   = sum(w * s for w, s in zip(weights, free_speeds)) / total_w
+            congestion = sum(w * c for w, c in zip(weights, c_values))   / total_w
 
-            data["traffic_factor"]   = round(base_vol * emit_f, 4)
-            data["congestion_ratio"]  = round(congestion, 4)
+            length_km = data.get("length", 0) / 1000.0
 
-            # Stretch base_time by congestion so routing engine sees real delays.
-            # congestion=0.4 (heavy jam) → live_time = 2.5× base_time.
-            # congestion=1.0 (free flow) → live_time = base_time.
-            # Uses only data already fetched from TomTom — zero extra API calls.
-            base_time = data.get("base_time", 0)
-            data["live_time"] = round(base_time / max(congestion, MIN_CONGESTION_RATIO), 4)
+            # ── Core: TomTom speeds → travel times ────────────────────────
+            data["base_time"] = round(
+                (length_km / max(free_spd, MIN_SPEED_KMPH)) * 60.0, 6)
+            data["live_time"] = round(
+                (length_km / max(curr_spd, MIN_SPEED_KMPH)) * 60.0, 6)
+
+            # ── Pollution ─────────────────────────────────────────────────
+            base_vol = self._edge_base_volumes.get((u, v, k), DEFAULT_TRAFFIC_VOLUME)
+            data["traffic_factor"]  = round(base_vol * _emission_factor(congestion), 4)
+            data["congestion_ratio"] = round(congestion, 4)
+
             updated += 1
 
-        logger.info(
-            "[TrafficEnricher] Updated traffic_factor on %d edges", updated
-        )
+        logger.info("[TrafficEnricher] Updated %d edges with TomTom speeds", updated)
 
     # ── Public API ────────────────────────────────────────────────────────────
 
     async def enrich(self) -> None:
         """
-        Fetch live traffic, update graph, recompute pollution weights.
+        Startup enrichment — loads from disk cache if fresh, else hits TomTom.
 
-        On startup: if a cache file exists and is younger than refresh_interval,
-        load from disk instead of calling TomTom. This means server restarts
-        during development cost zero API calls.
-
-        The scheduler always does a live fetch (bypasses cache) so the data
-        stays fresh every 3 hours regardless.
+        Cache TTL = 8 hours (the longest gap between scheduled refresh times:
+        8 PM → 1 AM → 9 AM). If the server restarts within that window,
+        the existing cache is still valid — no API calls needed.
         """
-        # ── Check disk cache ──────────────────────────────────────────────
+        CACHE_TTL = 8 * 60 * 60  # 8 hours
+
         if CACHE_FILE.exists():
             age = time.time() - CACHE_FILE.stat().st_mtime
-            if age < self.refresh_interval:
+            if age < CACHE_TTL:
                 logger.info(
-                    "[TrafficEnricher] Cache is %.0f min old — loading from disk (no API call)",
-                    age / 60,
-                )
+                    "[TrafficEnricher] Cache is %.0f min old — loading from disk (0 API calls)",
+                    age / 60)
                 flow_data = json.loads(CACHE_FILE.read_text())
                 self._update_graph_traffic_factors(flow_data)
                 self.pollution_model.attach_pollution_weights()
@@ -477,35 +347,11 @@ class TrafficEnricher:
                 self._last_enriched = time.time()
                 return
 
-        # ── Cache stale or missing — fetch from TomTom ────────────────────
-        logger.info("[TrafficEnricher] Starting enrichment cycle...")
-        t0 = time.monotonic()
-
-        flow_data = await self._fetch_all_samples()
-
-        if flow_data:
-            self._update_graph_traffic_factors(flow_data)
-            self.pollution_model.attach_pollution_weights()
-            self._enrichment_count += 1
-            self._last_enriched = time.time()
-
-            # Save to disk cache for next restart
-            CACHE_FILE.parent.mkdir(parents=True, exist_ok=True)
-            CACHE_FILE.write_text(json.dumps(flow_data))
-            logger.info("[TrafficEnricher] Cache saved to %s", CACHE_FILE)
-
-        elapsed = time.monotonic() - t0
-        logger.info(
-            "[TrafficEnricher] Enrichment #%d complete in %.1fs",
-            self._enrichment_count, elapsed,
-        )
+        await self._enrich_live()
 
     async def _enrich_live(self) -> None:
-        """
-        Force a live TomTom fetch, bypassing the disk cache.
-        Used by the scheduler so data stays fresh every 3 hours.
-        """
-        logger.info("[TrafficEnricher] Starting scheduled live enrichment...")
+        """Live TomTom fetch — used by scheduler and on stale/missing cache."""
+        logger.info("[TrafficEnricher] Starting live enrichment cycle...")
         t0 = time.monotonic()
 
         flow_data = await self._fetch_all_samples()
@@ -518,21 +364,58 @@ class TrafficEnricher:
 
             CACHE_FILE.parent.mkdir(parents=True, exist_ok=True)
             CACHE_FILE.write_text(json.dumps(flow_data))
-            logger.info("[TrafficEnricher] Cache updated at %s", CACHE_FILE)
+            logger.info("[TrafficEnricher] Cache saved → %s", CACHE_FILE)
 
-        elapsed = time.monotonic() - t0
-        logger.info(
-            "[TrafficEnricher] Enrichment #%d complete in %.1fs",
-            self._enrichment_count, elapsed,
-        )
+        logger.info("[TrafficEnricher] Enrichment #%d complete in %.1fs",
+                    self._enrichment_count, time.monotonic() - t0)
 
     async def run_scheduler(self) -> None:
         """
-        Background loop — runs a live fetch every refresh_interval seconds.
-        Start this with asyncio.create_task() in your FastAPI startup.
+        Background loop — fires a live TomTom fetch at each scheduled
+        time of day (Indore local time), corresponding to major traffic
+        pattern shifts:
+
+            1:00 AM  — post-night baseline
+            9:00 AM  — morning rush settling
+            2:00 PM  — midday lull
+            5:00 PM  — evening rush starting
+            8:00 PM  — post-rush, night traffic
+
+        5 refreshes/day × 150 points = 750 API calls/day (of 2,500 free).
         """
+        import datetime
+        import zoneinfo
+
+        REFRESH_HOURS = [1, 9, 14, 17, 20]
+        TZ = zoneinfo.ZoneInfo("Asia/Kolkata")
+
         while True:
-            await asyncio.sleep(self.refresh_interval)
+            now   = datetime.datetime.now(TZ)
+            today = now.date()
+
+            # Find the next scheduled slot after now
+            next_run = None
+            for hour in sorted(REFRESH_HOURS):
+                candidate = datetime.datetime.combine(
+                    today, datetime.time(hour, 0), tzinfo=TZ)
+                if candidate > now:
+                    next_run = candidate
+                    break
+
+            # All today's slots passed — use first slot tomorrow
+            if next_run is None:
+                tomorrow = today + datetime.timedelta(days=1)
+                next_run = datetime.datetime.combine(
+                    tomorrow, datetime.time(REFRESH_HOURS[0], 0), tzinfo=TZ)
+
+            sleep_secs = (next_run - now).total_seconds()
+            logger.info(
+                "[TrafficEnricher] Next refresh at %s IST (in %.0f min)",
+                next_run.strftime("%H:%M"), sleep_secs / 60,
+            )
+
+            await asyncio.sleep(sleep_secs)
+
             try:
                 await self._enrich_live()
             except Exception as exc:
@@ -540,10 +423,9 @@ class TrafficEnricher:
 
     @property
     def status(self) -> dict:
-        """Quick health check — expose via a /status endpoint if needed."""
         return {
-            "sample_nodes":      len(self._sample_nodes),
-            "enrichment_count":  self._enrichment_count,
-            "last_enriched":     self._last_enriched,
-            "refresh_interval_h": self.refresh_interval / 3600,
+            "sample_nodes":       len(self._sample_nodes),
+            "enrichment_count":   self._enrichment_count,
+            "last_enriched":      self._last_enriched,
+            "next_refresh_hours": [1, 9, 14, 17, 20],
         }
