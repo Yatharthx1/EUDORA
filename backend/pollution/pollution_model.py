@@ -84,7 +84,14 @@ class PollutionModel:
         if isinstance(road_type, list):
             road_type = road_type[0]
 
-        volume    = TRAFFIC_VOLUME.get(road_type, DEFAULT_TRAFFIC_VOLUME)
+        # Prefer traffic_factor written by TomTom (already accounts for live
+        # congestion + road type volume). Fall back to static table when
+        # TomTom hasn't enriched this edge yet — no extra API calls needed.
+        if "traffic_factor" in data and data["traffic_factor"] != 1.0:
+            volume = data["traffic_factor"]
+        else:
+            volume = TRAFFIC_VOLUME.get(road_type, DEFAULT_TRAFFIC_VOLUME)
+
         i_factor  = _intersection_factor(self.G, u, v)
         sig_bonus = 1.5 if data.get("signal_presence", 0) else 1.0
         length_km = data.get("length", 0) / 1000.0

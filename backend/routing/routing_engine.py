@@ -48,7 +48,7 @@ def summarize_route(G, route):
         v    = route[i + 1]
         edge = list(G[u][v].values())[0]
 
-        total_time     += edge.get("base_time", 0)
+        total_time     += edge.get("live_time") or edge.get("base_time", 0)
         total_distance += edge.get("length", 0)
 
         jid = edge.get("junction_id")
@@ -98,7 +98,7 @@ def weighted_directional_route(
 
     def edge_cost(edge, prev_node=None, curr_node=None, next_node=None):
         cost = (
-            w_time      * edge.get("base_time",       0) +
+            w_time      * (edge.get("live_time") or edge.get("base_time", 0)) +
             w_signal    * edge.get("signal_delay",    0) +
             w_hierarchy * edge.get("road_penalty",    0) +
             w_pollution * edge.get("pollution_delay", 0)

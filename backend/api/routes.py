@@ -5,7 +5,12 @@ router = APIRouter()
 
 # How much longer than the fastest route we allow.
 # 1.4 = 40% longer max. Tune this if routes feel too constrained.
-DISTANCE_BUDGET_FACTOR = 1.4
+# How much longer than the fastest route we allow per route type.
+# Least-signal and least-pollution need more room to find genuinely different
+# paths in Indore's grid — side streets that avoid junctions are often 1.7-2x longer.
+DISTANCE_BUDGET_FACTOR_SIGNAL     = 1.8
+DISTANCE_BUDGET_FACTOR_POLLUTION  = 1.8
+DISTANCE_BUDGET_FACTOR_OVERALL    = 1.5
 
 
 def route_to_geojson(G, route):
@@ -82,36 +87,45 @@ def get_routes(
         if fastest is None:
             raise HTTPException(status_code=404, detail="No route found.")
 
-        # ── Step 2: derive budget from fastest distance ───────────────────
-        budget_m = fastest["distance_km"] * 1000 * DISTANCE_BUDGET_FACTOR
+        # ── Step 2: derive per-route distance budgets ────────────────────
+        # Least-signal and least-pollution get a larger budget so they can
+        # genuinely detour onto quieter side streets in Indore's grid.
+        fastest_m = fastest["distance_km"] * 1000
 
-        # ── Step 3: run the other three routes within the budget ──────────
+        # ── Step 3: run the other three routes ────────────────────────────
+
+        # Least signals: strongly avoid signal edges; ignore road hierarchy
+        # so the router is free to use residential streets (which have no signals).
+        # w_hierarchy=0 — don't punish side streets, that's the whole point.
         least_signal = weighted_directional_route(
             G, start_lat, start_lng, end_lat, end_lng,
-            w_time=0.4, w_signal=3.0, w_turn=0.8,
-            w_hierarchy=1.2, w_pollution=0.2,
-            max_distance_m=budget_m,
+            w_time=0.3, w_signal=8.0, w_turn=0.5,
+            w_hierarchy=0.0, w_pollution=0.1,
+            max_distance_m=fastest_m * DISTANCE_BUDGET_FACTOR_SIGNAL,
         )
 
+        # Least pollution: strongly avoid high traffic_factor edges; also
+        # avoid signals (idling = emissions). w_hierarchy=0 same reasoning.
         least_pollution = weighted_directional_route(
             G, start_lat, start_lng, end_lat, end_lng,
-            w_time=0.4, w_signal=0.2, w_turn=0.8,
-            w_hierarchy=1.5, w_pollution=3.0,
-            max_distance_m=budget_m,
+            w_time=0.3, w_signal=0.5, w_turn=0.5,
+            w_hierarchy=0.0, w_pollution=8.0,
+            max_distance_m=fastest_m * DISTANCE_BUDGET_FACTOR_POLLUTION,
         )
 
+        # Overall best: balanced — some time pressure keeps it reasonable,
+        # mild signal and pollution awareness, light hierarchy preference.
         overall_best = weighted_directional_route(
             G, start_lat, start_lng, end_lat, end_lng,
-            w_time=1.0, w_signal=1.2, w_turn=0.6,
-            w_hierarchy=1.0, w_pollution=1.2,
-            max_distance_m=budget_m,
+            w_time=1.0, w_signal=1.5, w_turn=0.6,
+            w_hierarchy=0.5, w_pollution=1.5,
+            max_distance_m=fastest_m * DISTANCE_BUDGET_FACTOR_OVERALL,
         )
 
-        if not all([least_signal, least_pollution, overall_best]):
-            raise HTTPException(
-                status_code=404,
-                detail="One or more routes could not be computed within the distance budget."
-            )
+        # If a specialised route failed, fall back to fastest rather than 404
+        if least_signal   is None: least_signal   = fastest
+        if least_pollution is None: least_pollution = fastest
+        if overall_best   is None: overall_best   = fastest
 
         return {
             "fastest":         build_response(G, fastest,         pollution_model),

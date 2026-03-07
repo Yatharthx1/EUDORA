@@ -10,8 +10,8 @@ class SignalModel:
         registry_file="data/signals_registry.json",
         cluster_radius=80,       # meters
         detection_radius=50,     # meters
-        avg_wait_per_signal=45,
-        stop_probability=0.6
+        avg_wait_per_signal=75,  # increased: Indore signals average ~75s wait
+        stop_probability=0.85    # increased: most routes hit red at busy junctions
     ):
 
         self.G = graph
@@ -177,4 +177,4 @@ class SignalModel:
             data["signal_delay"]     = expected_delay_min
             data["time_with_signal"] = data["base_time"] + expected_delay_min
 
-        print("Signal weights attached to graph.")  
+        print("Signal weights attached to graph.")

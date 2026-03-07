@@ -284,17 +284,25 @@ class TrafficEnricher:
     def _cache_edge_base_volumes(self) -> None:
         """
         Cache base traffic volume per edge from the road type table.
-        Imported from graph_builder to stay DRY.
+        Defined inline to avoid any cross-module import at startup.
         """
-        try:
-            from backend.routing.graph_builder import ROAD_TRAFFIC_VOLUME, DEFAULT_TRAFFIC_VOLUME
-        except ImportError:
-            # Fallback table if graph_builder isn't on path
-            ROAD_TRAFFIC_VOLUME = {
-                "motorway": 0.7, "trunk": 0.9, "primary": 1.8,
-                "secondary": 1.5, "tertiary": 1.1, "residential": 0.6,
-            }
-            DEFAULT_TRAFFIC_VOLUME = 0.9
+        ROAD_TRAFFIC_VOLUME = {
+            "motorway":       0.7,
+            "motorway_link":  0.6,
+            "trunk":          0.9,
+            "trunk_link":     0.8,
+            "primary":        1.8,
+            "primary_link":   1.5,
+            "secondary":      1.5,
+            "secondary_link": 1.3,
+            "tertiary":       1.1,
+            "tertiary_link":  1.0,
+            "residential":    0.6,
+            "living_street":  0.4,
+            "service":        0.4,
+            "unclassified":   0.8,
+        }
+        DEFAULT_TRAFFIC_VOLUME = 0.9
 
         for u, v, k, data in self.G.edges(keys=True, data=True):
             road_type = data.get("highway", "")
@@ -415,7 +423,10 @@ class TrafficEnricher:
                     c_values.append(sample["congestion_ratio"])
 
             if not weights:
-                # No nearby sample — keep existing traffic_factor
+                # No nearby TomTom sample — keep existing traffic_factor
+                # but ensure live_time is always present (fall back to base_time)
+                if "live_time" not in data:
+                    data["live_time"] = data.get("base_time", 0)
                 continue
 
             # IDW interpolated congestion ratio
@@ -423,8 +434,15 @@ class TrafficEnricher:
             base_vol   = self._edge_base_volumes.get((u, v, k), 0.9)
             emit_f     = _emission_factor(congestion)
 
-            data["traffic_factor"]  = round(base_vol * emit_f, 4)
-            data["congestion_ratio"] = round(congestion, 4)
+            data["traffic_factor"]   = round(base_vol * emit_f, 4)
+            data["congestion_ratio"]  = round(congestion, 4)
+
+            # Stretch base_time by congestion so routing engine sees real delays.
+            # congestion=0.4 (heavy jam) → live_time = 2.5× base_time.
+            # congestion=1.0 (free flow) → live_time = base_time.
+            # Uses only data already fetched from TomTom — zero extra API calls.
+            base_time = data.get("base_time", 0)
+            data["live_time"] = round(base_time / max(congestion, MIN_CONGESTION_RATIO), 4)
             updated += 1
 
         logger.info(
