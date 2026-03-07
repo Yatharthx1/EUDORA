@@ -125,7 +125,10 @@ class PollutionModel:
             delays.append(delay)
 
         # Store max for use in score normalisation in analyze_route()
-        self._max_delay = max(delays) if delays else 1.0
+        import statistics
+        self._max_delay  = max(delays)
+        self._mean_delay = statistics.mean(delays)
+
 
         print(f"[PollutionModel] Weights attached. "
               f"Max exposure: {max_exp:.4f}  Max delay: {self._max_delay:.4f}")
@@ -147,8 +150,10 @@ class PollutionModel:
         # so "Cleanest Air" will always have the lowest score here.
         # Previous formula (exp_per_km * 20) used raw exposure density which
         # is not what the router minimised — caused score/route mismatch.
-        max_possible = self._max_delay * max(len(route) - 1, 1)
-        pollution_score = min(100, round((total_delay / max_possible) * 100, 1))
+        # In analyze_route(), replace the pollution_score calculation with:
+        avg_delay_per_edge = total_delay / max(len(route) - 1, 1)
+        print(f"[Debug] total_delay={total_delay:.4f} route_len={len(route)} avg={avg_delay_per_edge:.6f} max_delay={self._max_delay:.4f}")
+        pollution_score = min(100, round((avg_delay_per_edge / self._mean_delay) * 50, 1))
 
         aqi_index  = self._fetch_city_aqi()
         aqi_scalar = {1: 0.85, 2: 0.92, 3: 1.00, 4: 1.10, 5: 1.20}.get(aqi_index, 1.00)

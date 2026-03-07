@@ -108,8 +108,14 @@ def build_graph(
 # Debug check (optional)
 if __name__ == "__main__":
     G = build_graph()
+    count = 0
+    for u, v, data in G.edges(data=True):
+        if data.get("name"):
+            count += 1
+            
+    print(f"Edges with name tag: {count}")
 
-    for u, v, k, data in G.edges(keys=True, data=True):
-        if "base_time" in data:
-            print("base_time type:", type(data["base_time"]))
-            break
+    # Check a specific corridor
+    ab_road = [(u,v,d) for u,v,d in G.edges(data=True) 
+            if "A. B. Road" in str(d.get("name",""))]
+    print(f"AB Road edges found: {len(ab_road)}")
