@@ -15,12 +15,6 @@ import os
 import datetime
 from backend.data.aqi_store import AQIStore
 
-# -------------------------------------------------------
-# Road-type -> base traffic volume index
-# Reflects vehicle density & emission intensity together.
-# Bypass/motorway: fast-moving -> lower stop-start exposure.
-# City primary/secondary: slow, dense -> highest exposure.
-# -------------------------------------------------------
 TRAFFIC_VOLUME = {
     "motorway":       0.7,
     "motorway_link":  0.6,
@@ -40,27 +34,11 @@ TRAFFIC_VOLUME = {
 DEFAULT_TRAFFIC_VOLUME = 0.9
 
 
-# -------------------------------------------------------
-# Smooth time-of-day multiplier
-# Two Gaussians: morning peak (8:30) + evening peak (17:30)
-# Baseline 0.55 at night, peaks ~2.5x at rush hours.
-# -------------------------------------------------------
-
 def _gaussian(x, mu, sigma):
     return math.exp(-0.5 * ((x - mu) / sigma) ** 2)
 
 
 def time_multiplier(hour=None):
-    """
-    Return a traffic-density multiplier for the given hour (0-24).
-    If hour is None, uses current local time.
-
-    Shape:
-      - Baseline 0.55 (late night)
-      - Morning peak ~2.5x at 8:30am  (sigma=1.2h)
-      - Evening peak ~2.5x at 5:30pm  (sigma=1.3h)
-      - Slight lunch bump at 1:00pm   (sigma=0.8h)
-    """
     if hour is None:
         now  = datetime.datetime.now()
         hour = now.hour + now.minute / 60.0
@@ -74,67 +52,34 @@ def time_multiplier(hour=None):
     return max(0.5, min(2.5, raw))
 
 
-# -------------------------------------------------------
-# Intersection density factor
-# -------------------------------------------------------
-
 def _node_degree(G, node):
-    """Return undirected-equivalent degree of a node."""
     return G.in_degree(node) + G.out_degree(node)
 
 
 def _intersection_factor(G, u, v):
-    """
-    Average node degree of edge endpoints, mapped to [0.8, 2.0].
-      Degree 2 (simple through-road)  -> ~0.8
-      Degree 6+ (busy junction)       -> ~2.0
-    """
     deg = (_node_degree(G, u) + _node_degree(G, v)) / 2.0
     factor = 0.8 + (deg - 2.0) * (1.2 / 6.0)
     return max(0.8, min(2.0, factor))
 
-
-# -------------------------------------------------------
-# PollutionModel
-# -------------------------------------------------------
 
 class PollutionModel:
 
     def __init__(self, graph, api_key=None):
         self.G         = graph
         self.aqi_store = AQIStore(api_key=api_key)
-
-    # ---------------------------------------------------
-    # City-centre AQI  (light global scalar only)
-    # ---------------------------------------------------
+        self._max_delay = 1.0   # set during attach, used for score display
 
     def _fetch_city_aqi(self):
-        """
-        Get AQI via AQIStore -- uses historical avg if available,
-        live API only as last resort. Returns int 1-5.
-        """
         result = self.aqi_store.get_aqi()
         print(f"[PollutionModel] AQI={result['aqi']} "
               f"source={result['source']} samples={result['samples']}")
         return result["aqi"]
 
     def _aqi_scalar(self):
-        """
-        AQI 1-5 -> light scalar 0.85-1.20.
-        Only nudges final route comparison, does not dominate.
-        """
         mapping = {1: 0.85, 2: 0.92, 3: 1.00, 4: 1.10, 5: 1.20}
         return mapping.get(self._fetch_city_aqi(), 1.00)
 
-    # ---------------------------------------------------
-    # Per-edge pollution exposure
-    # ---------------------------------------------------
-
     def _edge_exposure(self, u, v, data, t_mult):
-        """
-        Compute pollution exposure for a single edge.
-        Returns an arbitrary exposure index (higher = more polluted).
-        """
         road_type = data.get("highway", "")
         if isinstance(road_type, list):
             road_type = road_type[0]
@@ -146,17 +91,17 @@ class PollutionModel:
 
         return volume * i_factor * sig_bonus * t_mult * length_km
 
-    # ---------------------------------------------------
-    # Attach weights to graph  (called once at startup)
-    # ---------------------------------------------------
-
     def attach_pollution_weights(self, hour=None):
         """
         Compute and attach 'pollution_exposure' and 'pollution_delay'
         to every graph edge.
 
-        pollution_delay (minutes) feeds into the pathfinding cost function.
-        Scaled so a heavily polluted edge adds ~0-2 min equivalent cost.
+        DELAY_SCALE = 10.0
+        Previous value was 2.0. At 2.0, total pollution cost across a
+        14km route was ~0.5 min vs ~8 min time cost — too weak to steer
+        the router to a different path. At 10.0, pollution contributes
+        ~2.5 min, enough to meaningfully compete with time at w_pollution=3.0
+        while still being beatable by w_time=0.4 when routes are comparable.
         """
         t_mult = time_multiplier(hour)
         h      = hour if hour is not None else datetime.datetime.now().hour
@@ -169,39 +114,48 @@ class PollutionModel:
             data["pollution_exposure"] = round(exp, 6)
             exposures.append(exp)
 
-        # Normalise across all edges -> scale to delay minutes
         max_exp     = max(exposures) if exposures else 1.0
-        DELAY_SCALE = 2.0
+        DELAY_SCALE = 10.0   # was 2.0 — see docstring above
 
+        delays = []
         for u, v, k, data in self.G.edges(keys=True, data=True):
-            norm = data["pollution_exposure"] / max_exp
-            data["pollution_delay"] = round(norm * DELAY_SCALE, 4)
+            norm  = data["pollution_exposure"] / max_exp
+            delay = round(norm * DELAY_SCALE, 4)
+            data["pollution_delay"] = delay
+            delays.append(delay)
 
-        print(f"[PollutionModel] Weights attached. Max exposure: {max_exp:.4f}")
+        # Store max for use in score normalisation in analyze_route()
+        self._max_delay = max(delays) if delays else 1.0
 
-    # ---------------------------------------------------
-    # Route summary  (called after a route is found)
-    # ---------------------------------------------------
+        print(f"[PollutionModel] Weights attached. "
+              f"Max exposure: {max_exp:.4f}  Max delay: {self._max_delay:.4f}")
 
     def analyze_route(self, route):
+        total_delay     = 0.0
         total_exposure  = 0.0
         total_length_km = 0.0
 
         for i in range(len(route) - 1):
             u, v = route[i], route[i + 1]
             edge = list(self.G[u][v].values())[0]
+            total_delay     += edge.get("pollution_delay",    0)
             total_exposure  += edge.get("pollution_exposure", 0)
             total_length_km += edge.get("length", 0) / 1000.0
 
-        exp_per_km = (total_exposure / total_length_km) if total_length_km else 0
+        # pollution_score: total delay along this route normalised to 0-100.
+        # Uses the same pollution_delay values the router optimised against,
+        # so "Cleanest Air" will always have the lowest score here.
+        # Previous formula (exp_per_km * 20) used raw exposure density which
+        # is not what the router minimised — caused score/route mismatch.
+        max_possible = self._max_delay * max(len(route) - 1, 1)
+        pollution_score = min(100, round((total_delay / max_possible) * 100, 1))
 
-        # Fetch AQI once, derive both scalar and label from it
         aqi_index  = self._fetch_city_aqi()
         aqi_scalar = {1: 0.85, 2: 0.92, 3: 1.00, 4: 1.10, 5: 1.20}.get(aqi_index, 1.00)
-        aqi_label  = {1: "Good", 2: "Fair", 3: "Moderate", 4: "Poor", 5: "Very Poor"}.get(aqi_index, "Unknown")
+        aqi_label  = {1: "Good", 2: "Fair", 3: "Moderate",
+                      4: "Poor", 5: "Very Poor"}.get(aqi_index, "Unknown")
 
         adjusted_exposure = total_exposure * aqi_scalar
-        pollution_score   = min(100, round(exp_per_km * 20, 1))
 
         return {
             "pollution_score":  pollution_score,
