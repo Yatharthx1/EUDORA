@@ -3,6 +3,10 @@ from backend.routing.routing_engine import weighted_directional_route
 
 router = APIRouter()
 
+# How much longer than the fastest route we allow.
+# 1.4 = 40% longer max. Tune this if routes feel too constrained.
+DISTANCE_BUDGET_FACTOR = 1.4
+
 
 def route_to_geojson(G, route):
     coordinates = [
@@ -20,15 +24,13 @@ def route_to_geojson(G, route):
 
 
 def extract_signal_coords(G, route):
-    coords       = []
+    coords         = []
     seen_junctions = set()
 
     for i in range(len(route) - 1):
         u, v = route[i], route[i + 1]
         edge = list(G[u][v].values())[0]
 
-        # Only emit one marker per physical junction, matching the fixed
-        # signal count returned by summarize_route().
         jid = edge.get("junction_id")
         if jid is not None and jid not in seen_junctions:
             seen_junctions.add(jid)
@@ -69,36 +71,47 @@ def get_routes(
     pollution_model = request.app.state.pollution_model
 
     try:
+        # ── Step 1: run fastest with no distance constraint ───────────────
         fastest = weighted_directional_route(
             G, start_lat, start_lng, end_lat, end_lng,
             w_time=1.0, w_signal=0.1, w_turn=0.2,
-                w_hierarchy=0.8,   # was 0.3 — needs lever to discourage true bypasses
-            w_pollution=0.05
+            w_hierarchy=0.3, w_pollution=0.05,
+            max_distance_m=None,
         )
 
+        if fastest is None:
+            raise HTTPException(status_code=404, detail="No route found.")
+
+        # ── Step 2: derive budget from fastest distance ───────────────────
+        budget_m = fastest["distance_km"] * 1000 * DISTANCE_BUDGET_FACTOR
+
+        # ── Step 3: run the other three routes within the budget ──────────
         least_signal = weighted_directional_route(
             G, start_lat, start_lng, end_lat, end_lng,
             w_time=0.4, w_signal=3.0, w_turn=0.8,
-            w_hierarchy=2.0,   # was 1.2 — motorways have no signals so w_signal alone rewards them
-            w_pollution=0.2
+            w_hierarchy=1.2, w_pollution=0.2,
+            max_distance_m=budget_m,
         )
 
         least_pollution = weighted_directional_route(
             G, start_lat, start_lng, end_lat, end_lng,
             w_time=0.4, w_signal=0.2, w_turn=0.8,
-            w_hierarchy=2.5,   # was 1.5 — motorway pollution is so low w_pollution pulls hard
-            w_pollution=3.0
+            w_hierarchy=1.5, w_pollution=3.0,
+            max_distance_m=budget_m,
         )
 
         overall_best = weighted_directional_route(
             G, start_lat, start_lng, end_lat, end_lng,
-             w_time=1.0, w_signal=1.2, w_turn=0.6,
-        w_hierarchy=1.8,   # was 1.0 — multiple weights rewarding motorways simultaneously
-        w_pollution=1.2
+            w_time=1.0, w_signal=1.2, w_turn=0.6,
+            w_hierarchy=1.0, w_pollution=1.2,
+            max_distance_m=budget_m,
         )
 
-        if not all([fastest, least_signal, least_pollution, overall_best]):
-            raise HTTPException(status_code=404, detail="One or more routes could not be computed.")
+        if not all([least_signal, least_pollution, overall_best]):
+            raise HTTPException(
+                status_code=404,
+                detail="One or more routes could not be computed within the distance budget."
+            )
 
         return {
             "fastest":         build_response(G, fastest,         pollution_model),

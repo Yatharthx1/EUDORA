@@ -41,10 +41,7 @@ def summarize_route(G, route):
 
     total_time     = 0
     total_distance = 0
-    seen_junctions = set()  # deduplicate signals by junction_id so that a
-                            # multi-node OSM intersection is counted only once,
-                            # matching the behaviour of manually-added signals
-                            # which are already one entry per junction.
+    seen_junctions = set()
 
     for i in range(len(route) - 1):
         u    = route[i]
@@ -76,7 +73,8 @@ def weighted_directional_route(
         w_signal=1.0,
         w_turn=1.0,
         w_hierarchy=1.0,
-        w_pollution=1.0):
+        w_pollution=1.0,
+        max_distance_m=None):
     """
     Dijkstra-based routing with configurable weights for:
       - travel time
@@ -84,6 +82,12 @@ def weighted_directional_route(
       - turn penalty
       - road hierarchy penalty
       - pollution delay
+
+    max_distance_m : float | None
+        If set, any path whose cumulative length exceeds this value is
+        pruned immediately. Pass (fastest_distance_km * 1000 * 1.4) to
+        keep all routes within 40% of the fastest route's distance.
+        None means no limit (default — use for the fastest route itself).
     """
 
     origin = ox.distance.nearest_nodes(G, origin_lon, origin_lat)
@@ -105,12 +109,13 @@ def weighted_directional_route(
 
     # Seed with origin's neighbors
     for neighbor in G.successors(origin):
-        edge = list(G[origin][neighbor].values())[0]
-        cost = edge_cost(edge)
-        heapq.heappush(pq, (cost, origin, neighbor, [origin, neighbor]))
+        edge         = list(G[origin][neighbor].values())[0]
+        cost         = edge_cost(edge)
+        edge_dist    = edge.get("length", 0)
+        heapq.heappush(pq, (cost, origin, neighbor, [origin, neighbor], edge_dist))
 
     while pq:
-        cost, prev, current, path = heapq.heappop(pq)
+        cost, prev, current, path, path_dist = heapq.heappop(pq)
 
         state = (prev, current)
         if state in visited and visited[state] <= cost:
@@ -121,8 +126,16 @@ def weighted_directional_route(
             return summarize_route(G, path)
 
         for next_node in G.successors(current):
-            edge     = list(G[current][next_node].values())[0]
+            edge         = list(G[current][next_node].values())[0]
+            edge_dist    = edge.get("length", 0)
+            new_dist     = path_dist + edge_dist
+
+            # ── Distance budget: prune before expanding ───────────────────
+            if max_distance_m is not None and new_dist > max_distance_m:
+                continue
+
             new_cost = cost + edge_cost(edge, prev, current, next_node)
-            heapq.heappush(pq, (new_cost, current, next_node, path + [next_node]))
+            heapq.heappush(pq, (new_cost, current, next_node,
+                                path + [next_node], new_dist))
 
     return None
