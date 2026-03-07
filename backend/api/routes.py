@@ -72,7 +72,7 @@ def get_routes(
         fastest = weighted_directional_route(
             G, start_lat, start_lng, end_lat, end_lng,
             w_time=1.0, w_signal=0.1, w_turn=0.2,
-            w_hierarchy=0.8,   # was 0.3 — needs lever to discourage true bypasses
+                w_hierarchy=0.8,   # was 0.3 — needs lever to discourage true bypasses
             w_pollution=0.05
         )
 
