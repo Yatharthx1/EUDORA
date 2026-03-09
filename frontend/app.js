@@ -7,8 +7,8 @@ const API_BASE = 'http://localhost:8000';
 
 // ── LocationIQ ────────────────────────────────────────────────
 // Replace with your LocationIQ token from https://locationiq.com
-const LOCATIONIQ_TOKEN = 'YOUR_LOCATIONIQ_TOKEN';
-const LOCATIONIQ_URL   = 'https://api.locationiq.com/v1/autocomplete';
+const LOCATIONIQ_TOKEN = 'API HERE';
+const LOCATIONIQ_URL = 'https://api.locationiq.com/v1/autocomplete';
 
 // Bias search toward Indore bbox
 const INDORE_LAT = 22.7196;
@@ -18,7 +18,7 @@ const INDORE_LON = 75.8577;
 const ROUTE_CFG = {
   fastest: {
     label: 'Fastest',
-    desc:  'Minimum travel time',
+    desc: 'Minimum travel time',
     color: '#f0a500',
     weight: 4,
     icon: `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
@@ -27,7 +27,7 @@ const ROUTE_CFG = {
   },
   least_signal: {
     label: 'Least Signals',
-    desc:  'Fewer traffic lights',
+    desc: 'Fewer traffic lights',
     color: '#0bbfb0',
     weight: 4,
     icon: `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
@@ -39,7 +39,7 @@ const ROUTE_CFG = {
   },
   least_pollution: {
     label: 'Cleanest Air',
-    desc:  'Lowest pollution exposure',
+    desc: 'Lowest pollution exposure',
     color: '#22c55e',
     weight: 4,
     icon: `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
@@ -48,7 +48,7 @@ const ROUTE_CFG = {
   },
   overall_best: {
     label: 'Best Overall',
-    desc:  'Balanced across all factors',
+    desc: 'Balanced across all factors',
     color: '#7c6aff',
     weight: 5,
     icon: `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
@@ -63,35 +63,84 @@ const AQI_MAP = {
 };
 
 // ── State ─────────────────────────────────────────────────────
-let map          = null;
-let tileLayer    = null;
-let polylines    = {};
-let signalLayer  = null;
-let markers      = { origin: null, dest: null };
-let routeData    = {};
-let activeKey    = null;
+let map = null;
+let tileLayer = null;
+let polylines = {};
+let signalLayer = null;
+let markers = { origin: null, dest: null };
+let routeData = {};
+let activeKey = null;
 let originCoords = null;
-let destCoords   = null;
-let sugTimers    = {};
-let isDark       = true;
+let destCoords = null;
+let sugTimers = {};
+let isDark = true;
 
 // ============================================================
-// THEME
+// THEME + TILES
 // ============================================================
 
-const TILES = {
-  dark:  'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
+// ── MapTiler (primary) ────────────────────────────────────────
+// Get a free key at https://cloud.maptiler.com
+// Recommended styles:
+//   dark  → 'dataviz-dark'  or  '0196a77b-f9c8-7b3d-8cc7-fb6e97cd9d40' (Streets Dark)
+//   light → 'dataviz'       or  'basic-v2'
+const MAPTILER_KEY = 'API HERE';
+const MAPTILER_STYLE = {
+  dark: 'dataviz-dark',
+  light: 'dataviz',
+};
+
+// ── CartoDB (fallback) ────────────────────────────────────────
+const CARTO_TILES = {
+  dark: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
   light: 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
 };
 
-const TILE_ATTR = '&copy; <a href="https://osm.org/copyright">OSM</a> &copy; <a href="https://carto.com/">CARTO</a>';
+function buildTileLayer(dark, onError) {
+  const style = dark ? MAPTILER_STYLE.dark : MAPTILER_STYLE.light;
+  const url = `https://api.maptiler.com/maps/${style}/{z}/{x}/{y}.png?key=${MAPTILER_KEY}`;
+  const attr = '&copy; <a href="https://www.maptiler.com/">MapTiler</a> &copy; <a href="https://osm.org/copyright">OSM</a>';
+
+  const layer = L.tileLayer(url, {
+    attribution: attr,
+    tileSize: 512,
+    zoomOffset: -1,
+    maxZoom: 20,
+    crossOrigin: true,
+  });
+
+  // On first tile error → fall back to CartoDB silently
+  let fell = false;
+  layer.on('tileerror', () => {
+    if (fell) return;
+    fell = true;
+    console.warn('[EUDORA] MapTiler unavailable — falling back to CartoDB');
+    onError(dark);
+  });
+
+  return layer;
+}
 
 function applyTheme(dark) {
   isDark = dark;
   document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
   if (tileLayer && map) map.removeLayer(tileLayer);
-  tileLayer = L.tileLayer(dark ? TILES.dark : TILES.light, {
-    attribution: TILE_ATTR,
+
+  if (!MAPTILER_KEY || MAPTILER_KEY === 'YOUR_MAPTILER_KEY') {
+    // No key set — use CartoDB directly
+    _applyCartoFallback(dark);
+    return;
+  }
+
+  tileLayer = buildTileLayer(dark, _applyCartoFallback);
+  tileLayer.addTo(map);
+}
+
+function _applyCartoFallback(dark) {
+  if (tileLayer && map) map.removeLayer(tileLayer);
+  const attr = '&copy; <a href="https://osm.org/copyright">OSM</a> &copy; <a href="https://carto.com/">CARTO</a>';
+  tileLayer = L.tileLayer(dark ? CARTO_TILES.dark : CARTO_TILES.light, {
+    attribution: attr,
     subdomains: 'abcd',
     maxZoom: 19,
   }).addTo(map);
@@ -115,7 +164,7 @@ function initMap() {
 // ============================================================
 
 function injectGlowFilter(key, color) {
-  const id  = `ef-${key}`;
+  const id = `ef-${key}`;
   const svg = document.querySelector('.leaflet-overlay-pane svg');
   if (!svg || document.getElementById(id)) return;
 
@@ -143,7 +192,7 @@ function animateDraw(poly) {
   if (!el) return;
   const len = el.getTotalLength ? el.getTotalLength() : 4000;
   el.style.transition = 'none';
-  el.style.strokeDasharray  = len;
+  el.style.strokeDasharray = len;
   el.style.strokeDashoffset = len;
   requestAnimationFrame(() => requestAnimationFrame(() => {
     el.style.transition = 'stroke-dashoffset 0.9s cubic-bezier(0.4,0,0.2,1)';
@@ -161,12 +210,12 @@ function clearPolylines() {
 
 function drawRoutes(data) {
   clearPolylines();
-  const order  = ['fastest', 'least_signal', 'least_pollution', 'overall_best'];
+  const order = ['fastest', 'least_signal', 'least_pollution', 'overall_best'];
   const bounds = L.latLngBounds();
 
   order.forEach(key => {
     const route = data[key];
-    const cfg   = ROUTE_CFG[key];
+    const cfg = ROUTE_CFG[key];
     if (!route) return;
 
     const coords = route.route.geometry.coordinates.map(([lng, lat]) => [lat, lng]);
@@ -203,7 +252,7 @@ function drawRoutes(data) {
 
 function activatePolyline(key) {
   Object.entries(polylines).forEach(([k, { glow, line }]) => {
-    const cfg      = ROUTE_CFG[k];
+    const cfg = ROUTE_CFG[k];
     const isActive = k === key;
 
     if (isActive) {
@@ -285,7 +334,7 @@ function pinIcon(color, letter) {
 
 function placeMarkers() {
   if (markers.origin) markers.origin.remove();
-  if (markers.dest)   markers.dest.remove();
+  if (markers.dest) markers.dest.remove();
   if (originCoords)
     markers.origin = L.marker([originCoords.lat, originCoords.lon],
       { icon: pinIcon('#7c6aff', 'A') }).addTo(map);
@@ -310,11 +359,11 @@ function renderCards(data) {
 
   ['fastest', 'least_signal', 'least_pollution', 'overall_best'].forEach(key => {
     const route = data[key];
-    const cfg   = ROUTE_CFG[key];
+    const cfg = ROUTE_CFG[key];
     if (!route) return;
 
     const card = document.createElement('div');
-    card.className   = 'rcard';
+    card.className = 'rcard';
     card.dataset.key = key;
     card.style.setProperty('--accent', cfg.color);
 
@@ -368,7 +417,7 @@ function selectRoute(key) {
   renderSignals((routeData[key] || {}).signal_coords || []);
 
   const route = routeData[key];
-  const cfg   = ROUTE_CFG[key];
+  const cfg = ROUTE_CFG[key];
   if (!route || !cfg) return;
 
   const pill = document.getElementById('active-pill');
@@ -396,14 +445,14 @@ async function searchLocationIQ(q) {
   if (!q || q.length < 3) return [];
   try {
     const params = new URLSearchParams({
-      key:               LOCATIONIQ_TOKEN,
-      q:                 q,
-      limit:             6,
-      dedupe:            1,
+      key: LOCATIONIQ_TOKEN,
+      q: q,
+      limit: 6,
+      dedupe: 1,
       'accept-language': 'en',
-      countrycodes:      'in',
-      lat:               INDORE_LAT,
-      lon:               INDORE_LON,
+      countrycodes: 'in',
+      lat: INDORE_LAT,
+      lon: INDORE_LON,
     });
     const res = await fetch(`${LOCATIONIQ_URL}?${params}`);
     if (!res.ok) return [];
@@ -412,8 +461,8 @@ async function searchLocationIQ(q) {
 }
 
 function setupSearch(inputId, sugId, onSelect, clearBtnId) {
-  const input    = document.getElementById(inputId);
-  const sug      = document.getElementById(sugId);
+  const input = document.getElementById(inputId);
+  const sug = document.getElementById(sugId);
   const clearBtn = document.getElementById(clearBtnId);
 
   // Clear button
@@ -437,10 +486,10 @@ function setupSearch(inputId, sugId, onSelect, clearBtnId) {
 
       sug.innerHTML = '';
       results.forEach(item => {
-        const addr    = item.address || {};
-        const main    = item.display_place || item.display_name.split(',')[0];
+        const addr = item.address || {};
+        const main = item.display_place || item.display_name.split(',')[0];
         const subParts = [addr.suburb, addr.city_district, addr.city].filter(Boolean).slice(0, 2);
-        const sub     = subParts.join(', ');
+        const sub = subParts.join(', ');
 
         const div = document.createElement('div');
         div.className = 'sug-item';
@@ -518,8 +567,8 @@ async function handleSearch() {
 // ============================================================
 
 function setState(s) {
-  document.getElementById('empty-state').style.display   = s === 'empty'   ? 'flex'  : 'none';
-  document.getElementById('loading-state').style.display = s === 'loading' ? 'flex'  : 'none';
+  document.getElementById('empty-state').style.display = s === 'empty' ? 'flex' : 'none';
+  document.getElementById('loading-state').style.display = s === 'loading' ? 'flex' : 'none';
   if (s === 'loading') document.getElementById('cards').innerHTML = '';
   document.getElementById('go-btn').disabled = s === 'loading';
   if (s !== 'results') document.getElementById('active-pill').style.display = 'none';
@@ -535,21 +584,21 @@ function toast(msg) {
   const t = document.createElement('div');
   t.id = '_toast';
   Object.assign(t.style, {
-    position:     'fixed',
-    bottom:       '28px',
-    right:        '22px',
-    zIndex:       '9999',
-    background:   'var(--bg-card)',
-    border:       '1px solid var(--border-2)',
-    color:        'var(--text-1)',
-    fontFamily:   "'IBM Plex Mono', monospace",
-    fontSize:     '11px',
-    letterSpacing:'0.3px',
-    padding:      '11px 16px',
+    position: 'fixed',
+    bottom: '28px',
+    right: '22px',
+    zIndex: '9999',
+    background: 'var(--bg-card)',
+    border: '1px solid var(--border-2)',
+    color: 'var(--text-1)',
+    fontFamily: "'IBM Plex Mono', monospace",
+    fontSize: '11px',
+    letterSpacing: '0.3px',
+    padding: '11px 16px',
     borderRadius: '8px',
-    boxShadow:    'var(--shadow-card)',
-    maxWidth:     '280px',
-    lineHeight:   '1.6',
+    boxShadow: 'var(--shadow-card)',
+    maxWidth: '280px',
+    lineHeight: '1.6',
   });
   t.textContent = msg;
   document.body.appendChild(t);
@@ -582,7 +631,7 @@ document.addEventListener('DOMContentLoaded', () => {
   startClock();
 
   setupSearch('input-origin', 'sug-origin', c => { originCoords = c; }, 'clear-origin');
-  setupSearch('input-dest',   'sug-dest',   c => { destCoords   = c; }, 'clear-dest');
+  setupSearch('input-dest', 'sug-dest', c => { destCoords = c; }, 'clear-dest');
 
   document.getElementById('go-btn').addEventListener('click', handleSearch);
   document.getElementById('theme-toggle').addEventListener('click', () => applyTheme(!isDark));
@@ -590,7 +639,7 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('swap-btn').addEventListener('click', () => {
     const oi = document.getElementById('input-origin');
     const di = document.getElementById('input-dest');
-    [oi.value, di.value]       = [di.value, oi.value];
+    [oi.value, di.value] = [di.value, oi.value];
     [originCoords, destCoords] = [destCoords, originCoords];
   });
 

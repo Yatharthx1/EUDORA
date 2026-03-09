@@ -64,6 +64,15 @@ def build_response(G, result, pollution_model):
     }
 
 
+# Indore bounding box — reject coordinates clearly outside the city
+# so the error message is useful instead of a silent 404.
+INDORE_BBOX = {"min_lat": 22.25, "max_lat": 23.15, "min_lng": 75.45, "max_lng": 76.35}
+
+def _in_indore(lat: float, lng: float) -> bool:
+    return (INDORE_BBOX["min_lat"] <= lat <= INDORE_BBOX["max_lat"] and
+            INDORE_BBOX["min_lng"] <= lng <= INDORE_BBOX["max_lng"])
+
+
 @router.get("/get-routes")
 def get_routes(
     request: Request,
@@ -76,6 +85,18 @@ def get_routes(
     pollution_model = request.app.state.pollution_model
 
     try:
+        # ── Step 0: validate both points are within Indore ────────────────
+        if not _in_indore(start_lat, start_lng):
+            raise HTTPException(
+                status_code=400,
+                detail="Start location is outside Indore. This app only covers Indore city."
+            )
+        if not _in_indore(end_lat, end_lng):
+            raise HTTPException(
+                status_code=400,
+                detail="End location is outside Indore. This app only covers Indore city."
+            )
+
         # ── Step 1: run fastest with no distance constraint ───────────────
         fastest = weighted_directional_route(
             G, start_lat, start_lng, end_lat, end_lng,
