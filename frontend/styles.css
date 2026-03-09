@@ -67,7 +67,7 @@
 /* ── ROUTE COLORS ─────────────────────────────────────────────── */
 :root {
   --r-fast:   #e8a845;
-  --r-sig:    #e05555;
+  --r-sig:    #00ffff;
   --r-pol:    #5db87a;
   --r-best:   #9b7fe8;
   --panel-w:  460px;
@@ -905,4 +905,126 @@ body {
   }
   .map-region { inset: 0; }
   .route-pill { left: 12px; right: 12px; transform: none; bottom: 12px; }
+}
+
+/* ── START NAVIGATION BUTTON ─────────────────────────────────── */
+.start-nav-btn {
+  width: 100%;
+  margin-top: 12px;
+  padding: 16px;
+  background: var(--accent, #e8a845);
+  border: none;
+  border-radius: 12px;
+  color: #111;
+  font-family: 'Outfit', sans-serif;
+  font-weight: 700;
+  font-size: 12px;
+  letter-spacing: 2px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  transition: all 0.2s;
+}
+
+.start-nav-btn:hover {
+  filter: brightness(1.08);
+  transform: translateY(-1px);
+}
+
+.start-nav-btn:active { transform: translateY(0); }
+
+/* ── NAV HUD ─────────────────────────────────────────────────── */
+#nav-hud {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding: 24px;
+}
+
+.nav-hud-inner {
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+}
+
+.nav-hud-header {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.nav-hud-label {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 2.5px;
+  color: var(--text-label);
+}
+
+.nav-hud-route {
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: 1px;
+}
+
+.nav-hud-stats {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  padding: 20px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-1);
+  border-radius: 12px;
+}
+
+.nav-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.nav-stat-val {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 28px;
+  font-weight: 600;
+  color: var(--text-1);
+  line-height: 1;
+  letter-spacing: -1px;
+}
+
+.nav-stat-lbl {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 8px;
+  color: var(--text-3);
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+}
+
+
+
+.nav-stop-btn {
+  width: 100%;
+  padding: 16px;
+  background: transparent;
+  border: 1px solid var(--border-3);
+  border-radius: 12px;
+  color: var(--text-2);
+  font-family: 'Outfit', sans-serif;
+  font-weight: 600;
+  font-size: 12px;
+  letter-spacing: 2px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  transition: all 0.2s;
+}
+
+.nav-stop-btn:hover {
+  background: rgba(220,60,60,0.08);
+  border-color: rgba(220,60,60,0.4);
+  color: #dc3c3c;
 }

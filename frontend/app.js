@@ -480,6 +480,21 @@ function selectRoute(key) {
     <div class="pill-stat">${route.signals} signals</div>
     <div class="pill-stat">AQI ${route.aqi_index}</div>
   `;
+
+  // Show start button
+  let startBtn = document.getElementById('start-nav-btn');
+  if (!startBtn) {
+    startBtn = document.createElement('button');
+    startBtn.id = 'start-nav-btn';
+    startBtn.className = 'start-nav-btn';
+    startBtn.innerHTML = `
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+      START NAVIGATION
+    `;
+    startBtn.addEventListener('click', startNavigation);
+    document.getElementById('cards').appendChild(startBtn);
+  }
+  startBtn.style.setProperty('--accent', cfg.color);
 }
 
 // ============================================================
@@ -694,3 +709,267 @@ document.addEventListener('DOMContentLoaded', () => {
     })
   );
 });
+
+// ============================================================
+// NAVIGATION MODE
+// ============================================================
+
+let navState = {
+  active: false,
+  watchId: null,
+  userMarker: null,
+  routeCoords: [],   // [[lat,lng], ...]
+  totalDist: 0,      // km
+  totalTime: 0,      // min
+  offRouteCount: 0,
+  lastHeading: 0,
+};
+
+// ── Haversine distance (km) between two [lat,lng] points ──────
+function haversine([lat1, lon1], [lat2, lon2]) {
+  const R = 6371;
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a = Math.sin(dLat/2)**2 +
+            Math.cos(lat1 * Math.PI/180) * Math.cos(lat2 * Math.PI/180) *
+            Math.sin(dLon/2)**2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+}
+
+// ── Nearest point index on route ─────────────────────────────
+function nearestPointIndex(pos, coords) {
+  let minDist = Infinity, idx = 0;
+  coords.forEach(([lat, lng], i) => {
+    const d = haversine(pos, [lat, lng]);
+    if (d < minDist) { minDist = d; idx = i; }
+  });
+  return { idx, dist: minDist };
+}
+
+// ── Remaining distance from index to end ─────────────────────
+function remainingDistance(coords, fromIdx) {
+  let d = 0;
+  for (let i = fromIdx; i < coords.length - 1; i++) {
+    d += haversine(coords[i], coords[i+1]);
+  }
+  return d;
+}
+
+// ── User position marker (directional arrow) ─────────────────
+function userArrowIcon(heading) {
+  const h = heading || 0;
+  return L.divIcon({
+    className: '',
+    html: `<div style="
+      width:44px; height:44px;
+      display:flex; align-items:center; justify-content:center;
+      transform: rotate(${h}deg);
+      filter: drop-shadow(0 2px 8px rgba(59,130,246,0.6));
+    ">
+      <svg width="44" height="44" viewBox="0 0 44 44" fill="none">
+        <!-- Outer pulse ring -->
+        <circle cx="22" cy="22" r="20" fill="rgba(59,130,246,0.15)" stroke="rgba(59,130,246,0.3)" stroke-width="1"/>
+        <!-- Arrow body -->
+        <polygon points="22,6 30,32 22,27 14,32" fill="#3b82f6"/>
+        <polygon points="22,6 30,32 22,27 14,32" fill="url(#arrowGrad)"/>
+        <!-- White center dot -->
+        <circle cx="22" cy="22" r="3.5" fill="white"/>
+        <defs>
+          <linearGradient id="arrowGrad" x1="22" y1="6" x2="22" y2="32" gradientUnits="userSpaceOnUse">
+            <stop offset="0%" stop-color="#60a5fa"/>
+            <stop offset="100%" stop-color="#2563eb"/>
+          </linearGradient>
+        </defs>
+      </svg>
+    </div>`,
+    iconSize: [44, 44],
+    iconAnchor: [22, 22],
+  });
+}
+
+// ── Start navigation ──────────────────────────────────────────
+function startNavigation() {
+  if (!activeKey || !routeData[activeKey]) {
+    toast('Select a route first.');
+    return;
+  }
+
+  const route = routeData[activeKey];
+  navState.routeCoords = route.route.geometry.coordinates.map(([lng, lat]) => [lat, lng]);
+  navState.totalDist = parseFloat(route.distance_km);
+  navState.totalTime = route.time_min;
+  navState.active = true;
+  navState.offRouteCount = 0;
+
+  // Switch panel to nav HUD
+  showNavHUD();
+
+  if (!navigator.geolocation) {
+    toast('Geolocation not supported.');
+    stopNavigation();
+    return;
+  }
+
+  toast('Navigation started. Stay on route.');
+
+  // Zoom in to street level for navigation
+  if (originCoords) {
+    map.flyTo([originCoords.lat, originCoords.lon], 17, {
+      animate: true,
+      duration: 1.2,
+    });
+  }
+
+  navState.watchId = navigator.geolocation.watchPosition(
+    onNavPosition,
+    (err) => toast('GPS error: ' + err.message),
+    { enableHighAccuracy: true, maximumAge: 2000, timeout: 10000 }
+  );
+}
+
+// ── Handle each GPS update ────────────────────────────────────
+function onNavPosition(pos) {
+  const { latitude: lat, longitude: lng, heading } = pos.coords;
+  const userPos = [lat, lng];
+  const h = heading != null && !isNaN(heading) ? heading : (navState.lastHeading || 0);
+  navState.lastHeading = h;
+
+  // Move or create arrow marker
+  if (!navState.userMarker) {
+    navState.userMarker = L.marker(userPos, {
+      icon: userArrowIcon(h),
+      zIndexOffset: 1000,
+    }).addTo(map);
+  } else {
+    navState.userMarker.setLatLng(userPos);
+    navState.userMarker.setIcon(userArrowIcon(h));
+  }
+
+  // Pan map to follow user smoothly
+  map.panTo(userPos, { animate: true, duration: 0.6 });
+
+  // Find nearest point on route
+  const { idx, dist } = nearestPointIndex(userPos, navState.routeCoords);
+
+  // Off-route detection (>80m away)
+  if (dist > 0.08) {
+    navState.offRouteCount++;
+    if (navState.offRouteCount >= 3) {
+      navState.offRouteCount = 0;
+      toast('📍 Off route — recalculating…');
+      rerouteFromPosition(lat, lng);
+      return;
+    }
+  } else {
+    navState.offRouteCount = 0;
+  }
+
+  // Update ETA
+  const remDist = remainingDistance(navState.routeCoords, idx);
+  const avgSpeed = navState.totalDist > 0
+    ? navState.totalDist / navState.totalTime
+    : 0.5; // km/min fallback
+  const remTime = remDist / avgSpeed;
+
+  updateNavHUD(remDist);
+
+  // Arrived?
+  if (remDist < 0.05) {
+    toast('✅ You have arrived!');
+    stopNavigation();
+  }
+}
+
+// ── Reroute from current position ────────────────────────────
+async function rerouteFromPosition(lat, lng) {
+  if (!destCoords) return;
+  try {
+    const url = `${API_BASE}/api/get-routes` +
+      `?start_lat=${lat}&start_lng=${lng}` +
+      `&end_lat=${destCoords.lat}&end_lng=${destCoords.lon}`;
+    const res = await fetch(url);
+    if (!res.ok) throw new Error('Reroute failed');
+    const data = await res.json();
+    routeData = data;
+    drawRoutes(data);
+    selectRoute(activeKey in data ? activeKey : 'overall_best');
+    const route = routeData[activeKey];
+    navState.routeCoords = route.route.geometry.coordinates.map(([lng2, lat2]) => [lat2, lng2]);
+    navState.totalDist = parseFloat(route.distance_km);
+    navState.totalTime = route.time_min;
+    toast('✅ Route updated.');
+  } catch {
+    toast('Could not reroute. Check connection.');
+  }
+}
+
+// ── Stop navigation ───────────────────────────────────────────
+function stopNavigation() {
+  if (navState.watchId !== null) {
+    navigator.geolocation.clearWatch(navState.watchId);
+    navState.watchId = null;
+  }
+  if (navState.userMarker) {
+    navState.userMarker.remove();
+    navState.userMarker = null;
+  }
+  navState.active = false;
+  hideNavHUD();
+}
+
+// ── Nav HUD DOM ───────────────────────────────────────────────
+function showNavHUD() {
+  // Hide normal results, show nav hud
+  document.getElementById('results-section').style.display = 'none';
+  document.getElementById('search-block').style.display = 'none';
+
+  let hud = document.getElementById('nav-hud');
+  if (!hud) {
+    hud = document.createElement('div');
+    hud.id = 'nav-hud';
+    hud.innerHTML = `
+      <div class="nav-hud-inner">
+        <div class="nav-hud-header">
+          <div class="nav-hud-label">NAVIGATING</div>
+          <div class="nav-hud-route" id="nav-route-name"></div>
+        </div>
+        <div class="nav-hud-stats">
+          <div class="nav-stat">
+            <div class="nav-stat-val" id="nav-dist">—</div>
+            <div class="nav-stat-lbl">remaining</div>
+          </div>
+        </div>
+        <button class="nav-stop-btn" id="nav-stop-btn">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><rect x="4" y="4" width="16" height="16" rx="2"/></svg>
+          STOP
+        </button>
+      </div>
+    `;
+    document.querySelector('.panel').appendChild(hud);
+    document.getElementById('nav-stop-btn').addEventListener('click', stopNavigation);
+  }
+
+  const cfg = ROUTE_CFG[activeKey];
+  document.getElementById('nav-route-name').textContent = cfg.label;
+  document.getElementById('nav-route-name').style.color = cfg.color;
+  hud.style.display = 'flex';
+
+  // Initial values
+  const route = routeData[activeKey];
+  updateNavHUD(parseFloat(route.distance_km));
+}
+
+function updateNavHUD(remDistKm) {
+  const distEl = document.getElementById('nav-dist');
+  if (!distEl) return;
+  distEl.textContent = remDistKm < 1
+    ? `${Math.round(remDistKm * 1000)}m`
+    : `${remDistKm.toFixed(1)}km`;
+}
+
+function hideNavHUD() {
+  const hud = document.getElementById('nav-hud');
+  if (hud) hud.style.display = 'none';
+  document.getElementById('results-section').style.display = '';
+  document.getElementById('search-block').style.display = '';
+}
