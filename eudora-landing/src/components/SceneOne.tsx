@@ -188,17 +188,18 @@ export default function SceneOne() {
           <p
             ref={subtitleRef}
             style={{
-              fontSize: "clamp(0.8rem, 2vw, 1.1rem)",
-              fontWeight: 300,
-              letterSpacing: "0.15em",
-              color: "#9e9890",
+              fontSize: "clamp(1rem, 2.5vw, 1.4rem)",
+              fontWeight: 400,
+              letterSpacing: "0.2em",
+              color: "#f0ebe3",
               textTransform: "uppercase",
+              textShadow: "0 0 40px rgba(0,0,0,0.9), 0 2px 8px rgba(0,0,0,0.6)",
               opacity: 0,
-              marginTop: 12,
+              marginTop: 20,
               willChange: "opacity",
             }}
           >
-            Navigate Smarter. Breathe Better.
+            Navigate Smarter. <span style={{ color: "#e8a845" }}>Breathe Better.</span>
           </p>
         </div>
         <div
