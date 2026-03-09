@@ -7,8 +7,7 @@ const API_BASE = 'http://localhost:8000';
 
 // ── LocationIQ ────────────────────────────────────────────────
 // Replace with your LocationIQ token from https://locationiq.com
-const LOCATIONIQ_TOKEN = 'API HERE';
-const LOCATIONIQ_URL = 'https://api.locationiq.com/v1/autocomplete';
+// Geocoding is proxied through the backend — no keys in frontend
 
 // Bias search toward Indore bbox
 const INDORE_LAT = 22.7196;
@@ -79,7 +78,7 @@ let isDark = true;
 // THEME + TILES
 // ============================================================
 
-const MAPTILER_KEY = 'API HERE';
+// Map tiles are proxied through the backend — no keys in frontend
 const MAPTILER_STYLE = {
   dark: 'dataviz-dark',
   light: 'dataviz',
@@ -92,7 +91,7 @@ const CARTO_TILES = {
 
 function buildTileLayer(dark, onError) {
   const style = dark ? MAPTILER_STYLE.dark : MAPTILER_STYLE.light;
-  const url = `https://api.maptiler.com/maps/${style}/{z}/{x}/{y}.png?key=${MAPTILER_KEY}`;
+  const url = `${API_BASE}/api/tiles/${style}/{z}/{x}/{y}.png`;
   const attr = '&copy; <a href="https://www.maptiler.com/">MapTiler</a> &copy; <a href="https://osm.org/copyright">OSM</a>';
 
   const layer = L.tileLayer(url, {
@@ -119,7 +118,7 @@ function applyTheme(dark) {
   document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
   if (tileLayer && map) map.removeLayer(tileLayer);
 
-  if (!MAPTILER_KEY || MAPTILER_KEY === 'YOUR_MAPTILER_KEY') {
+  if (false) { // tiles always proxied
     _applyCartoFallback(dark);
     return;
   }
@@ -356,7 +355,7 @@ function useMyLocation() {
       // Reverse geocode to get human-readable address
       try {
         const res = await fetch(
-          `https://us1.locationiq.com/v1/reverse?key=${LOCATIONIQ_TOKEN}&lat=${lat}&lon=${lon}&format=json`
+          `${API_BASE}/api/reverse?lat=${lat}&lon=${lon}`
         );
         const data = await res.json();
         const parts = (data.display_name || '').split(',');
@@ -504,17 +503,8 @@ function selectRoute(key) {
 async function searchLocationIQ(q) {
   if (!q || q.length < 3) return [];
   try {
-    const params = new URLSearchParams({
-      key: LOCATIONIQ_TOKEN,
-      q: q,
-      limit: 6,
-      dedupe: 1,
-      'accept-language': 'en',
-      countrycodes: 'in',
-      lat: INDORE_LAT,
-      lon: INDORE_LON,
-    });
-    const res = await fetch(`${LOCATIONIQ_URL}?${params}`);
+    const params = new URLSearchParams({ q });
+    const res = await fetch(`${API_BASE}/api/geocode?${params}`);
     if (!res.ok) return [];
     return await res.json();
   } catch { return []; }
@@ -609,6 +599,7 @@ async function handleSearch() {
     routeData = data;
 
     setState('results');
+    ProgressBar.finish();
     renderCards(data);
     drawRoutes(data);
     placeMarkers();
@@ -617,9 +608,90 @@ async function handleSearch() {
 
   } catch (err) {
     setState('empty');
+    ProgressBar.fail();
     toast(`Error: ${err.message}`);
   }
 }
+
+
+// ============================================================
+// PROGRESS BAR
+// ============================================================
+
+const ProgressBar = (() => {
+  let el = null;
+  let timer = null;
+  let current = 0;
+
+  function _getEl() {
+    if (!el) {
+      el = document.createElement('div');
+      el.id = '_progress';
+      Object.assign(el.style, {
+        position: 'fixed',
+        top: '0', left: '0',
+        height: '2px',
+        width: '0%',
+        background: 'var(--gold)',
+        zIndex: '99999',
+        transition: 'width 0.3s ease, opacity 0.4s ease',
+        boxShadow: '0 0 8px var(--gold)',
+        borderRadius: '0 2px 2px 0',
+        opacity: '1',
+        pointerEvents: 'none',
+      });
+      document.body.appendChild(el);
+    }
+    return el;
+  }
+
+  function start() {
+    clearInterval(timer);
+    current = 0;
+    const bar = _getEl();
+    bar.style.opacity = '1';
+    bar.style.transition = 'width 0.3s ease, opacity 0.4s ease';
+    bar.style.width = '0%';
+
+    // Slowly crawl to 85% — never completes on its own
+    timer = setInterval(() => {
+      if (current < 85) {
+        // Slows down as it approaches 85
+        const step = (85 - current) * 0.06;
+        current = Math.min(current + step, 85);
+        bar.style.width = current + '%';
+      }
+    }, 120);
+  }
+
+  function finish() {
+    clearInterval(timer);
+    const bar = _getEl();
+    bar.style.width = '100%';
+    setTimeout(() => {
+      bar.style.opacity = '0';
+      setTimeout(() => { bar.style.width = '0%'; }, 400);
+    }, 250);
+  }
+
+  function fail() {
+    clearInterval(timer);
+    const bar = _getEl();
+    bar.style.background = '#e05555';
+    bar.style.boxShadow = '0 0 8px #e05555';
+    bar.style.width = '100%';
+    setTimeout(() => {
+      bar.style.opacity = '0';
+      setTimeout(() => {
+        bar.style.width = '0%';
+        bar.style.background = 'var(--gold)';
+        bar.style.boxShadow = '0 0 8px var(--gold)';
+      }, 400);
+    }, 400);
+  }
+
+  return { start, finish, fail };
+})();
 
 // ============================================================
 // STATE
@@ -628,7 +700,10 @@ async function handleSearch() {
 function setState(s) {
   document.getElementById('empty-state').style.display = s === 'empty' ? 'flex' : 'none';
   document.getElementById('loading-state').style.display = s === 'loading' ? 'flex' : 'none';
-  if (s === 'loading') document.getElementById('cards').innerHTML = '';
+  if (s === 'loading') {
+    document.getElementById('cards').innerHTML = '';
+    ProgressBar.start();
+  }
   document.getElementById('go-btn').disabled = s === 'loading';
   if (s !== 'results') document.getElementById('active-pill').style.display = 'none';
 }

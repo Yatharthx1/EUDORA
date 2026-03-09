@@ -67,7 +67,7 @@
 /* ── ROUTE COLORS ─────────────────────────────────────────────── */
 :root {
   --r-fast:   #e8a845;
-  --r-sig:    #00ffff;
+  --r-sig:    #e05555;
   --r-pol:    #5db87a;
   --r-best:   #9b7fe8;
   --panel-w:  460px;
@@ -895,16 +895,166 @@ body {
 .signal-tip.leaflet-tooltip::before { display: none !important; }
 
 /* ── RESPONSIVE ──────────────────────────────────────────────── */
-@media (max-width: 700px) {
+/* ═══════════════════════════════════════════════════════════════
+   RESPONSIVE — TABLET (≤ 900px)
+   Panel gets narrower, slightly less padding
+═══════════════════════════════════════════════════════════════ */
+@media (max-width: 900px) {
+  :root { --panel-w: 380px; }
+
+  .panel-header { padding: 20px 18px 16px; }
+  .search-block { padding: 14px 18px 18px; }
+  .results-block { padding: 14px 18px 10px; }
+
+  .wp-row { padding: 16px 14px; }
+  .wp-field-wrap input { font-size: 15px; }
+  .compute-btn { padding: 16px; font-size: 11px; }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   RESPONSIVE — MOBILE (≤ 680px)
+   Panel becomes a bottom sheet, map fills full screen behind it
+═══════════════════════════════════════════════════════════════ */
+@media (max-width: 680px) {
+  /* ── Panel: bottom sheet ───────────────────────────────────── */
   .panel {
-    left: 12px; right: 12px;
-    top: auto; bottom: 12px;
-    width: auto;
-    max-height: 55vh;
-    border-radius: 14px;
+    /* Detach from left side, stick to bottom */
+    left: 0;
+    right: 0;
+    top: auto;
+    bottom: 0;
+    width: 100%;
+    max-height: 72vh;
+    border-radius: 20px 20px 0 0;
+    border-left: none;
+    border-right: none;
+    border-bottom: none;
+    border-top: 1px solid var(--border-2);
+
+    /* Drag handle visual cue */
+    padding-top: 6px;
   }
+
+  /* Drag handle pill at top of sheet */
+  .panel::before {
+    content: '';
+    display: block;
+    width: 36px;
+    height: 4px;
+    background: var(--border-3);
+    border-radius: 2px;
+    margin: 4px auto 0;
+    flex-shrink: 0;
+  }
+
+  /* Map fills entire screen — panel floats on top */
   .map-region { inset: 0; }
-  .route-pill { left: 12px; right: 12px; transform: none; bottom: 12px; }
+
+  /* ── Header compact ────────────────────────────────────────── */
+  .panel-header {
+    padding: 12px 16px 10px;
+  }
+
+  .brand-name { font-size: 17px; letter-spacing: 2px; }
+  .brand-tagline { display: none; }
+  .brand-mark { width: 28px; height: 28px; }
+
+  /* ── Search block ──────────────────────────────────────────── */
+  .search-block { padding: 10px 16px 14px; }
+
+  .wp-row { padding: 13px 12px; }
+  .wp-glyph { width: 26px; height: 26px; font-size: 9px; }
+  .wp-field-wrap input { font-size: 14px; }
+  .wp-track { height: 28px; padding: 0 14px; }
+
+  .compute-btn {
+    padding: 15px;
+    font-size: 11px;
+    letter-spacing: 1.5px;
+    border-radius: 11px;
+  }
+
+  /* ── Results block: horizontal card scroll ─────────────────── */
+  /* On mobile, route cards scroll horizontally to save vertical space */
+  .results-block {
+    padding: 10px 16px 12px;
+    overflow-y: hidden;
+    overflow-x: visible;
+  }
+
+  #cards {
+    flex-direction: row;
+    overflow-x: auto;
+    overflow-y: hidden;
+    gap: 10px;
+    padding-bottom: 4px;
+    scroll-snap-type: x mandatory;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+
+  #cards::-webkit-scrollbar { display: none; }
+
+  .rcard {
+    min-width: 220px;
+    max-width: 240px;
+    flex-shrink: 0;
+    scroll-snap-align: start;
+  }
+
+  /* Start nav button full width below cards */
+  .start-nav-btn {
+    margin: 10px 16px 4px;
+    width: calc(100% - 32px);
+  }
+
+  /* ── Section labels smaller ────────────────────────────────── */
+  .section-label { font-size: 7px; letter-spacing: 1.5px; }
+
+  /* ── Route pill moves above bottom sheet ───────────────────── */
+  .route-pill {
+    left: 12px;
+    right: 12px;
+    bottom: auto;
+    top: 16px;
+    transform: none;
+    max-width: none;
+    border-radius: 10px;
+  }
+
+  /* ── Footer hidden on mobile — too cramped ─────────────────── */
+  .panel-footer { display: none; }
+
+  /* ── Nav HUD adjustments ───────────────────────────────────── */
+  #nav-hud { padding: 16px; }
+  .nav-hud-inner { gap: 16px; }
+  .nav-stat-val { font-size: 22px; }
+  .nav-hud-stats { padding: 14px 16px; }
+
+  /* ── Zoom buttons — move above bottom sheet ────────────────── */
+  .leaflet-control-zoom {
+    margin-right: 12px !important;
+    margin-bottom: 78vh !important;
+  }
+
+  /* ── Suggestions dropdown ──────────────────────────────────── */
+  .sug-list {
+    max-height: 160px;
+    border-radius: 8px;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   RESPONSIVE — SMALL MOBILE (≤ 390px, e.g. iPhone SE)
+   Tighter everything
+═══════════════════════════════════════════════════════════════ */
+@media (max-width: 390px) {
+  .panel { max-height: 78vh; }
+  .brand-name { font-size: 15px; }
+  .rcard { min-width: 190px; }
+  .wp-field-wrap input { font-size: 13px; }
+  .compute-btn { font-size: 10px; padding: 13px; }
+  .nav-stat-val { font-size: 20px; }
 }
 
 /* ── START NAVIGATION BUTTON ─────────────────────────────────── */
