@@ -75,7 +75,7 @@ export default function CtaSection() {
           Built for Indore.
         </p>
         <Link
-          href="frontend/index.html"
+          href={process.env.NEXT_PUBLIC_APP_URL || "/"}
           style={{
             display: "block",
             width: "100%",

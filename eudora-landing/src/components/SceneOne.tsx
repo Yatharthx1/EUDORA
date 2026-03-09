@@ -214,7 +214,7 @@ export default function SceneOne() {
           }}
         >
           <Link
-            href="frontend/index.html"
+            href={process.env.NEXT_PUBLIC_APP_URL || "/"}
             ref={buttonRef}
             style={{
               padding: "14px 48px",
