@@ -28,7 +28,7 @@ const ROUTE_CFG = {
   least_signal: {
     label: 'Least Signals',
     desc: 'Fewer traffic lights',
-    color: '#0bbfb0',
+    color: '#e05555',
     weight: 4,
     icon: `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
              <rect x="9" y="2" width="6" height="20" rx="3"/>
@@ -79,18 +79,12 @@ let isDark = true;
 // THEME + TILES
 // ============================================================
 
-// ── MapTiler (primary) ────────────────────────────────────────
-// Get a free key at https://cloud.maptiler.com
-// Recommended styles:
-//   dark  → 'dataviz-dark'  or  '0196a77b-f9c8-7b3d-8cc7-fb6e97cd9d40' (Streets Dark)
-//   light → 'dataviz'       or  'basic-v2'
 const MAPTILER_KEY = 'API HERE';
 const MAPTILER_STYLE = {
   dark: 'dataviz-dark',
   light: 'dataviz',
 };
 
-// ── CartoDB (fallback) ────────────────────────────────────────
 const CARTO_TILES = {
   dark: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
   light: 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
@@ -109,7 +103,6 @@ function buildTileLayer(dark, onError) {
     crossOrigin: true,
   });
 
-  // On first tile error → fall back to CartoDB silently
   let fell = false;
   layer.on('tileerror', () => {
     if (fell) return;
@@ -127,7 +120,6 @@ function applyTheme(dark) {
   if (tileLayer && map) map.removeLayer(tileLayer);
 
   if (!MAPTILER_KEY || MAPTILER_KEY === 'YOUR_MAPTILER_KEY') {
-    // No key set — use CartoDB directly
     _applyCartoFallback(dark);
     return;
   }
@@ -154,8 +146,9 @@ function initMap() {
   map = L.map('map', {
     center: [INDORE_LAT, INDORE_LON],
     zoom: 13,
-    zoomControl: true,
+    zoomControl: false,
   });
+  L.control.zoom({ position: 'bottomright' }).addTo(map);
   applyTheme(true);
 }
 
@@ -213,6 +206,7 @@ function drawRoutes(data) {
   const order = ['fastest', 'least_signal', 'least_pollution', 'overall_best'];
   const bounds = L.latLngBounds();
 
+  // Draw inactive routes first (below active)
   order.forEach(key => {
     const route = data[key];
     const cfg = ROUTE_CFG[key];
@@ -221,33 +215,31 @@ function drawRoutes(data) {
     const coords = route.route.geometry.coordinates.map(([lng, lat]) => [lat, lng]);
     coords.forEach(c => bounds.extend(c));
 
-    const glowPoly = L.polyline(coords, {
-      color: cfg.color,
-      weight: cfg.weight + 14,
-      opacity: 0,
+    // White border underline for depth
+    const borderPoly = L.polyline(coords, {
+      color: '#ffffff',
+      weight: cfg.weight + 4,
+      opacity: 0.15,
       lineCap: 'round',
       lineJoin: 'round',
     }).addTo(map);
 
+    // Main line
     const linePoly = L.polyline(coords, {
       color: cfg.color,
-      weight: cfg.weight,
-      opacity: 0.12,
+      weight: cfg.weight + 1,
+      opacity: 0.45,
       lineCap: 'round',
       lineJoin: 'round',
     }).addTo(map);
 
     linePoly.on('click', () => selectRoute(key));
-    glowPoly.on('click', () => selectRoute(key));
+    borderPoly.on('click', () => selectRoute(key));
 
-    polylines[key] = { glow: glowPoly, line: linePoly };
+    polylines[key] = { glow: borderPoly, line: linePoly };
   });
 
   map.fitBounds(bounds, { padding: [64, 64] });
-
-  requestAnimationFrame(() => {
-    order.forEach(key => injectGlowFilter(key, ROUTE_CFG[key].color));
-  });
 }
 
 function activatePolyline(key) {
@@ -256,18 +248,16 @@ function activatePolyline(key) {
     const isActive = k === key;
 
     if (isActive) {
-      glow.setStyle({ opacity: 0.22, weight: cfg.weight + 18 });
-      const ge = glow.getElement();
-      if (ge) ge.style.filter = `url(#ef-${k})`;
-      line.setStyle({ opacity: 1, weight: cfg.weight + 1.5 });
+      // Active: thick white border + vivid color on top
+      glow.setStyle({ opacity: 0.3, weight: cfg.weight + 6 });
+      line.setStyle({ opacity: 1, weight: cfg.weight + 2 });
       glow.bringToFront();
       line.bringToFront();
       animateDraw(line);
     } else {
-      glow.setStyle({ opacity: 0 });
-      line.setStyle({ opacity: 0.08, weight: cfg.weight });
-      const ge = glow.getElement();
-      if (ge) ge.style.filter = '';
+      // Inactive: thin, muted but visible
+      glow.setStyle({ opacity: 0.08, weight: cfg.weight + 4 });
+      line.setStyle({ opacity: 0.3, weight: cfg.weight });
     }
   });
 }
@@ -277,7 +267,7 @@ function activatePolyline(key) {
 // ============================================================
 
 function signalIcon() {
-  const color = isDark ? '#f0a500' : '#c97800';
+  const color = '#e05555';
   return L.divIcon({
     className: '',
     html: `<div style="
@@ -285,7 +275,7 @@ function signalIcon() {
       background:${color};
       border-radius:50%;
       border:1.5px solid ${color}55;
-      box-shadow:0 0 8px ${color}cc,0 0 3px ${color};
+      box-shadow:0 0 10px ${color}cc,0 0 4px ${color},0 0 16px ${color}88;
     "></div>`,
     iconSize: [9, 9],
     iconAnchor: [4.5, 4.5],
@@ -341,6 +331,61 @@ function placeMarkers() {
   if (destCoords)
     markers.dest = L.marker([destCoords.lat, destCoords.lon],
       { icon: pinIcon('#f0a500', 'B') }).addTo(map);
+}
+
+// ============================================================
+// GPS — USE DEVICE LOCATION
+// ============================================================
+
+function useMyLocation() {
+  const btn = document.getElementById('gps-btn');
+
+  if (!navigator.geolocation) {
+    toast('Geolocation is not supported by your browser.');
+    return;
+  }
+
+  // Show loading state on button
+  btn.style.opacity = '0.4';
+  btn.style.pointerEvents = 'none';
+
+  navigator.geolocation.getCurrentPosition(
+    async (pos) => {
+      const { latitude: lat, longitude: lon } = pos.coords;
+
+      // Reverse geocode to get human-readable address
+      try {
+        const res = await fetch(
+          `https://us1.locationiq.com/v1/reverse?key=${LOCATIONIQ_TOKEN}&lat=${lat}&lon=${lon}&format=json`
+        );
+        const data = await res.json();
+        const parts = (data.display_name || '').split(',');
+        const label = parts.slice(0, 2).join(', ').trim() || 'My Location';
+        document.getElementById('input-origin').value = label;
+      } catch {
+        document.getElementById('input-origin').value = 'My Location';
+      }
+
+      originCoords = { lat, lon };
+      placeMarkers();
+      map.setView([lat, lon], 15);
+      toast('📍 Location detected.');
+
+      btn.style.opacity = '1';
+      btn.style.pointerEvents = 'auto';
+    },
+    (err) => {
+      const messages = {
+        1: 'Location access denied. Please allow location in browser settings.',
+        2: 'Location unavailable. Try again.',
+        3: 'Location request timed out. Try again.',
+      };
+      toast(messages[err.code] || 'Could not get your location.');
+      btn.style.opacity = '1';
+      btn.style.pointerEvents = 'auto';
+    },
+    { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 }
+  );
 }
 
 // ============================================================
@@ -465,7 +510,6 @@ function setupSearch(inputId, sugId, onSelect, clearBtnId) {
   const sug = document.getElementById(sugId);
   const clearBtn = document.getElementById(clearBtnId);
 
-  // Clear button
   if (clearBtn) {
     clearBtn.addEventListener('click', () => {
       input.value = '';
@@ -635,6 +679,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   document.getElementById('go-btn').addEventListener('click', handleSearch);
   document.getElementById('theme-toggle').addEventListener('click', () => applyTheme(!isDark));
+  document.getElementById('gps-btn').addEventListener('click', useMyLocation);
 
   document.getElementById('swap-btn').addEventListener('click', () => {
     const oi = document.getElementById('input-origin');
