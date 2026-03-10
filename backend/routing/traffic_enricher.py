@@ -350,13 +350,15 @@ class TrafficEnricher:
         await self._enrich_live()
 
     async def _enrich_live(self) -> None:
-        """Live TomTom fetch — used by scheduler and on stale/missing cache."""
+        """Live TomTom fetch — used by scheduler and on stale/missing cache.
+        Falls back to last saved cache if TomTom fails."""
         logger.info("[TrafficEnricher] Starting live enrichment cycle...")
         t0 = time.monotonic()
 
         flow_data = await self._fetch_all_samples()
 
         if flow_data:
+            # ── TomTom succeeded ─────────────────────────────────────────────
             self._update_graph_traffic_factors(flow_data)
             self.pollution_model.attach_pollution_weights()
             self._enrichment_count += 1
@@ -365,6 +367,28 @@ class TrafficEnricher:
             CACHE_FILE.parent.mkdir(parents=True, exist_ok=True)
             CACHE_FILE.write_text(json.dumps(flow_data))
             logger.info("[TrafficEnricher] Cache saved → %s", CACHE_FILE)
+
+        else:
+            # ── TomTom failed — fall back to last cache ───────────────────────
+            if CACHE_FILE.exists():
+                try:
+                    cached = json.loads(CACHE_FILE.read_text())
+                    age_min = (time.time() - CACHE_FILE.stat().st_mtime) / 60
+                    logger.warning(
+                        "[TrafficEnricher] TomTom failed — using cached data "
+                        "(%.0f min old)", age_min
+                    )
+                    self._update_graph_traffic_factors(cached)
+                    self.pollution_model.attach_pollution_weights()
+                    self._enrichment_count += 1
+                    self._last_enriched = time.time()
+                except Exception as e:
+                    logger.error("[TrafficEnricher] Cache fallback failed: %s", e)
+            else:
+                logger.error(
+                    "[TrafficEnricher] TomTom failed and no cache available — "
+                    "graph edges will use static fallback speeds."
+                )
 
         logger.info("[TrafficEnricher] Enrichment #%d complete in %.1fs",
                     self._enrichment_count, time.monotonic() - t0)
