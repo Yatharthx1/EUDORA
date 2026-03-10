@@ -89,32 +89,40 @@ export default function SceneOne() {
       drawFrame(Math.min(Math.floor(progress * 95), 95));
 
       if (titleRef.current && subtitleRef.current) {
-        if (progress < 0.25) {
+        // Title emerges as dust settles — starts at 0.68, fully visible by 0.85
+        if (progress < 0.68) {
           titleRef.current.style.opacity = "0";
-          titleRef.current.style.transform = "scale(1.3)";
-          titleRef.current.style.filter = "blur(10px)";
+          titleRef.current.style.transform = "scale(1.08) translateY(18px)";
+          titleRef.current.style.filter = "blur(14px)";
           subtitleRef.current.style.opacity = "0";
-        } else if (progress <= 0.4) {
-          const p = (progress - 0.25) / 0.15;
-          titleRef.current.style.opacity = String(p);
-          titleRef.current.style.transform = `scale(${1.3 - 0.3 * p})`;
-          titleRef.current.style.filter = `blur(${10 - 10 * p}px)`;
-          subtitleRef.current.style.opacity = String(p);
+          subtitleRef.current.style.transform = "translateY(10px)";
+        } else if (progress <= 0.85) {
+          const p = (progress - 0.68) / 0.17;
+          const ease = p < 0.5 ? 2 * p * p : -1 + (4 - 2 * p) * p; // ease in-out
+          titleRef.current.style.opacity = String(ease);
+          titleRef.current.style.transform = `scale(${1.08 - 0.08 * ease}) translateY(${18 - 18 * ease}px)`;
+          titleRef.current.style.filter = `blur(${14 - 14 * ease}px)`;
+          // Subtitle lags slightly behind
+          const sp = Math.max(0, (progress - 0.74) / 0.11);
+          const sEase = sp < 0.5 ? 2 * sp * sp : -1 + (4 - 2 * sp) * sp;
+          subtitleRef.current.style.opacity = String(Math.min(1, sEase));
+          subtitleRef.current.style.transform = `translateY(${10 - 10 * Math.min(1, sEase)}px)`;
         } else {
           titleRef.current.style.opacity = "1";
-          titleRef.current.style.transform = "scale(1)";
+          titleRef.current.style.transform = "scale(1) translateY(0px)";
           titleRef.current.style.filter = "blur(0px)";
           subtitleRef.current.style.opacity = "1";
+          subtitleRef.current.style.transform = "translateY(0px)";
         }
       }
 
       if (buttonRef.current) {
-        if (progress < 0.75) {
+        if (progress < 0.86) {
           buttonRef.current.style.opacity = "0";
           buttonRef.current.style.transform = "translateY(20px)";
           buttonRef.current.style.pointerEvents = "none";
-        } else if (progress <= 0.85) {
-          const bp = (progress - 0.75) / 0.1;
+        } else if (progress <= 0.94) {
+          const bp = (progress - 0.86) / 0.08;
           buttonRef.current.style.opacity = String(bp);
           buttonRef.current.style.transform = `translateY(${20 - 20 * bp}px)`;
           buttonRef.current.style.pointerEvents = "auto";
@@ -188,15 +196,14 @@ export default function SceneOne() {
           <p
             ref={subtitleRef}
             style={{
-              fontSize: "clamp(0.6rem, 3.8vw, 1.4rem)",
+              fontSize: "clamp(1rem, 2.5vw, 1.4rem)",
               fontWeight: 400,
-              letterSpacing: "clamp(0.05em, 0.8vw, 0.2em)",
+              letterSpacing: "0.2em",
               color: "#f0ebe3",
               textTransform: "uppercase",
               textShadow: "0 0 40px rgba(0,0,0,0.9), 0 2px 8px rgba(0,0,0,0.6)",
               opacity: 0,
               marginTop: 20,
-              whiteSpace: "nowrap",
               willChange: "opacity",
             }}
           >
@@ -215,7 +222,7 @@ export default function SceneOne() {
           }}
         >
           <Link
-            href={process.env.NEXT_PUBLIC_APP_URL || "/"}
+            href="frontend/index.html"
             ref={buttonRef}
             style={{
               padding: "14px 48px",
