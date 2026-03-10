@@ -500,7 +500,7 @@ function selectRoute(key) {
 // LOCATIONIQ SEARCH
 // ============================================================
 
-async function searchLocationIQ(q) {
+async function searchGeocode(q) {
   if (!q || q.length < 3) return [];
   try {
     const params = new URLSearchParams({ q });
@@ -530,7 +530,7 @@ function setupSearch(inputId, sugId, onSelect, clearBtnId) {
     if (q.length < 3) { closeSug(sug); return; }
 
     sugTimers[inputId] = setTimeout(async () => {
-      const results = await searchLocationIQ(q);
+      const results = await searchGeocode(q);
       if (!results?.length) { closeSug(sug); return; }
 
       sug.innerHTML = '';
@@ -561,7 +561,7 @@ function setupSearch(inputId, sugId, onSelect, clearBtnId) {
       });
 
       sug.classList.add('open');
-    }, 250);
+    }, 350);
   });
 
   input.addEventListener('blur', () => setTimeout(() => closeSug(sug), 160));
