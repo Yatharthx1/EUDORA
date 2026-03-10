@@ -3,7 +3,7 @@
    LocationIQ geocoding · Leaflet · Glowing animated routes
    ============================================================ */
 
-const API_BASE = 'https://theyath-eudora.hf.space';
+const API_BASE = 'https://yatharthx1-eudora-backend.hf.space';
 
 // ── LocationIQ ────────────────────────────────────────────────
 // Replace with your LocationIQ token from https://locationiq.com
@@ -783,7 +783,74 @@ document.addEventListener('DOMContentLoaded', () => {
       if (e.key === 'Enter') handleSearch();
     })
   );
+
+  // ── Mobile bottom sheet drag ──────────────────────────────────
+  initDragPanel();
 });
+
+function initDragPanel() {
+  if (window.innerWidth > 680) return;
+
+  const panel = document.querySelector('.panel');
+  if (!panel) return;
+
+  // Inject drag handle div
+  const handle = document.createElement('div');
+  handle.className = 'drag-handle';
+  panel.insertBefore(handle, panel.firstChild);
+
+  const minH = 120;          // collapsed: just enough to see inputs
+  const maxH = window.innerHeight * 0.85;
+  const defaultH = window.innerHeight * 0.50;
+
+  panel.style.maxHeight = defaultH + 'px';
+  panel.style.height = defaultH + 'px';
+  panel.style.transition = 'height 0.2s ease';
+
+  let startY = 0, startH = 0;
+
+  function onStart(e) {
+    startY = e.touches ? e.touches[0].clientY : e.clientY;
+    startH = panel.offsetHeight;
+    panel.classList.add('is-dragging');
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onEnd);
+    document.addEventListener('touchmove', onMove, { passive: false });
+    document.addEventListener('touchend', onEnd);
+  }
+
+  function onMove(e) {
+    if (e.cancelable) e.preventDefault();
+    const y = e.touches ? e.touches[0].clientY : e.clientY;
+    const delta = startY - y;
+    const newH = Math.min(maxH, Math.max(minH, startH + delta));
+    panel.style.height = newH + 'px';
+    panel.style.maxHeight = newH + 'px';
+  }
+
+  function onEnd() {
+    panel.classList.remove('is-dragging');
+    document.removeEventListener('mousemove', onMove);
+    document.removeEventListener('mouseup', onEnd);
+    document.removeEventListener('touchmove', onMove);
+    document.removeEventListener('touchend', onEnd);
+
+    // Snap: if below 30% screen, collapse; above 70%, expand
+    const h = panel.offsetHeight;
+    panel.style.transition = 'height 0.25s ease, max-height 0.25s ease';
+    if (h < window.innerHeight * 0.25) {
+      panel.style.height = minH + 'px';
+      panel.style.maxHeight = minH + 'px';
+    } else if (h > window.innerHeight * 0.65) {
+      panel.style.height = maxH + 'px';
+      panel.style.maxHeight = maxH + 'px';
+    }
+    setTimeout(() => panel.style.transition = 'height 0.2s ease', 300);
+  }
+
+  handle.addEventListener('mousedown', onStart);
+  handle.addEventListener('touchstart', onStart, { passive: true });
+}
 
 // ============================================================
 // NAVIGATION MODE
