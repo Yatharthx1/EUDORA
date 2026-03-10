@@ -947,6 +947,25 @@ body {
     flex-shrink: 0;
   }
 
+  /* Dragging state */
+  .panel.is-dragging {
+    transition: none !important;
+    user-select: none;
+  }
+
+  /* Invisible drag zone at top of panel */
+  .drag-handle {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 40px;
+    cursor: grab;
+    z-index: 10;
+    touch-action: none;
+  }
+  .drag-handle:active { cursor: grabbing; }
+
   /* Map fills entire screen — panel floats on top */
   .map-region { inset: 0; }
 
