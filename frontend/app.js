@@ -78,10 +78,22 @@ let isDark = true;
 // THEME + TILES
 // ============================================================
 
-// Map tiles are proxied through the backend — no keys in frontend
+// Map tiles: MapTiler (proxied) → Ola Maps → CartoDB
 const MAPTILER_STYLE = {
   dark: 'dataviz-dark',
   light: 'dataviz',
+};
+
+// Ola Maps raster tiles (no key needed for basic OSM style)
+const OLA_TILES = {
+  dark:  'https://api.olamaps.io/tiles/vector/v1/styles/default-dark-standard/style.json',
+  light: 'https://api.olamaps.io/tiles/vector/v1/styles/default-light-standard/style.json',
+};
+
+// Ola Maps raster fallback (standard raster endpoint)
+const OLA_RASTER = {
+  dark:  'https://api.olamaps.io/tiles/v1/styles/default-dark-standard/{z}/{x}/{y}.png',
+  light: 'https://api.olamaps.io/tiles/v1/styles/default-light-standard/{z}/{x}/{y}.png',
 };
 
 const CARTO_TILES = {
@@ -106,7 +118,7 @@ function buildTileLayer(dark, onError) {
   layer.on('tileerror', () => {
     if (fell) return;
     fell = true;
-    console.warn('[EUDORA] MapTiler unavailable — falling back to CartoDB');
+    console.warn('[EUDORA] MapTiler unavailable — falling back to Ola Maps');
     onError(dark);
   });
 
@@ -118,17 +130,35 @@ function applyTheme(dark) {
   document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
   if (tileLayer && map) map.removeLayer(tileLayer);
 
-  if (false) { // tiles always proxied
-    _applyCartoFallback(dark);
-    return;
-  }
+  // Chain: Ola Maps → MapTiler → CartoDB
+  _applyOlaTiles(dark);
+}
 
-  tileLayer = buildTileLayer(dark, _applyCartoFallback);
+function _applyOlaTiles(dark) {
+  if (tileLayer && map) map.removeLayer(tileLayer);
+  const attr = '&copy; <a href="https://olamaps.io/">Ola Maps</a> &copy; <a href="https://osm.org/copyright">OSM</a>';
+  tileLayer = L.tileLayer(OLA_RASTER[dark ? 'dark' : 'light'], {
+    attribution: attr,
+    maxZoom: 20,
+    crossOrigin: true,
+  });
+
+  let fell = false;
+  tileLayer.on('tileerror', () => {
+    if (fell) return;
+    fell = true;
+    console.warn('[EUDORA] Ola Maps unavailable — falling back to MapTiler');
+    if (tileLayer && map) map.removeLayer(tileLayer);
+    tileLayer = buildTileLayer(dark, _applyCartoFallback);
+    tileLayer.addTo(map);
+  });
+
   tileLayer.addTo(map);
 }
 
 function _applyCartoFallback(dark) {
   if (tileLayer && map) map.removeLayer(tileLayer);
+  console.warn('[EUDORA] Using CartoDB tiles (final fallback)');
   const attr = '&copy; <a href="https://osm.org/copyright">OSM</a> &copy; <a href="https://carto.com/">CARTO</a>';
   tileLayer = L.tileLayer(dark ? CARTO_TILES.dark : CARTO_TILES.light, {
     attribution: attr,
