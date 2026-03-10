@@ -4,6 +4,102 @@ import { useEffect, useRef } from "react";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 
+function ParticleCanvas() {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    const W = canvas.width = 220;
+    const H = canvas.height = 220;
+
+    type Particle = {
+      x: number; y: number; r: number;
+      vx: number; vy: number;
+      opacity: number; fadeRate: number;
+      color: string;
+    };
+
+    const colors = [
+      "rgba(180,140,60,",
+      "rgba(160,120,50,",
+      "rgba(200,160,70,",
+      "rgba(100,90,70,",
+      "rgba(62,207,207,",
+    ];
+
+    const particles: Particle[] = [];
+
+    function spawn(): Particle {
+      return {
+        x: W / 2 + (Math.random() - 0.5) * 60,
+        y: H - 10,
+        r: 6 + Math.random() * 14,
+        vx: (Math.random() - 0.5) * 0.6,
+        vy: -(0.4 + Math.random() * 0.7),
+        opacity: 0.6 + Math.random() * 0.3,
+        fadeRate: 0.003 + Math.random() * 0.004,
+        color: colors[Math.floor(Math.random() * colors.length)],
+      };
+    }
+
+    // Pre-populate
+    for (let i = 0; i < 30; i++) {
+      const p = spawn();
+      p.y = H - 10 - Math.random() * H;
+      p.opacity = Math.random() * 0.5;
+      particles.push(p);
+    }
+
+    let animId: number;
+
+    function draw() {
+      ctx!.clearRect(0, 0, W, H);
+
+      // Spawn new particles
+      if (particles.length < 60 && Math.random() < 0.4) {
+        particles.push(spawn());
+      }
+
+      for (let i = particles.length - 1; i >= 0; i--) {
+        const p = particles[i];
+        p.x += p.vx;
+        p.y += p.vy;
+        p.r += 0.08;
+        p.opacity -= p.fadeRate;
+
+        if (p.opacity <= 0) { particles.splice(i, 1); continue; }
+
+        const grad = ctx!.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.r);
+        grad.addColorStop(0, `${p.color}${p.opacity})`);
+        grad.addColorStop(1, `${p.color}0)`);
+
+        ctx!.beginPath();
+        ctx!.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+        ctx!.fillStyle = grad;
+        ctx!.fill();
+      }
+
+      animId = requestAnimationFrame(draw);
+    }
+
+    draw();
+    return () => cancelAnimationFrame(animId);
+  }, []);
+
+  return (
+    <canvas
+      ref={canvasRef}
+      width={220}
+      height={220}
+      style={{ display: "block" }}
+    />
+  );
+}
+
 export default function PollutionSection() {
   const sectionRef = useRef<HTMLElement>(null);
   const leftCardRef = useRef<HTMLDivElement>(null);
@@ -68,7 +164,7 @@ export default function PollutionSection() {
 
         {/* 3-column grid */}
         <div
-          style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 32, alignItems: "start" }}
+          style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 32, alignItems: "center" }}
           className="!grid-cols-1 md:!grid-cols-3"
         >
           {/* Left card */}
@@ -83,22 +179,40 @@ export default function PollutionSection() {
             </p>
           </div>
 
-          {/* Center (smoke + text) */}
-          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 24 }}>
-            <div style={{ position: "relative", width: 200, height: 200, overflow: "hidden" }}>
-              <svg width="200" height="200" viewBox="0 0 200 200" style={{ position: "absolute", inset: 0 }}>
-                <defs>
-                  <filter id="smokeBlur">
-                    <feGaussianBlur in="SourceGraphic" stdDeviation="8" />
-                  </filter>
-                </defs>
-                <ellipse cx="100" cy="140" rx="80" ry="50" fill="rgba(180,140,60,0.15)" filter="url(#smokeBlur)" className="animate-cloud1" />
-                <ellipse cx="70" cy="120" rx="60" ry="35" fill="rgba(62,207,207,0.08)" filter="url(#smokeBlur)" className="animate-cloud2" />
-                <ellipse cx="130" cy="130" rx="70" ry="40" fill="rgba(240,235,227,0.06)" filter="url(#smokeBlur)" className="animate-cloud3" />
-              </svg>
+          {/* Center — particle animation */}
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 16 }}>
+            {/* Particle canvas inside a subtle vignette container */}
+            <div style={{
+              position: "relative",
+              width: 220,
+              height: 220,
+              borderRadius: "50%",
+              overflow: "hidden",
+              boxShadow: "0 0 60px rgba(180,140,60,0.15), inset 0 0 40px rgba(0,0,0,0.6)",
+              background: "radial-gradient(circle at 50% 80%, rgba(180,140,60,0.08) 0%, transparent 70%)",
+            }}>
+              <ParticleCanvas />
+              {/* PM2.5 label overlay */}
+              <div style={{
+                position: "absolute",
+                bottom: 28,
+                left: 0,
+                right: 0,
+                textAlign: "center",
+                fontSize: "0.65rem",
+                letterSpacing: "0.25em",
+                color: "rgba(180,140,60,0.7)",
+                textTransform: "uppercase",
+                fontWeight: 600,
+              }}>
+                PM2.5 · PM10
+              </div>
             </div>
-            <p style={{ fontSize: "2rem", fontWeight: 700, color: "#f0ebe3", margin: 0 }}>
+            <p style={{ fontSize: "1.8rem", fontWeight: 700, color: "#f0ebe3", margin: 0, textAlign: "center" }}>
               Breathe Easier.
+            </p>
+            <p style={{ fontSize: "0.8rem", color: "#9e9890", letterSpacing: "0.1em", textTransform: "uppercase", margin: 0 }}>
+              Every route is different
             </p>
           </div>
 
@@ -143,24 +257,6 @@ export default function PollutionSection() {
           </p>
         </div>
       </div>
-
-      <style jsx>{`
-        @keyframes cloud1move {
-          0%, 100% { transform: translateY(0); }
-          50% { transform: translateY(-30px); }
-        }
-        @keyframes cloud2move {
-          0%, 100% { transform: translateY(0); }
-          50% { transform: translateY(-20px); }
-        }
-        @keyframes cloud3move {
-          0%, 100% { transform: translateY(0); }
-          50% { transform: translateY(-25px); }
-        }
-        .animate-cloud1 { animation: cloud1move 8s linear infinite; }
-        .animate-cloud2 { animation: cloud2move 12s linear infinite 1s; }
-        .animate-cloud3 { animation: cloud3move 10s linear infinite 2s; }
-      `}</style>
     </section>
   );
 }
