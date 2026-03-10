@@ -130,29 +130,8 @@ function applyTheme(dark) {
   document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
   if (tileLayer && map) map.removeLayer(tileLayer);
 
-  // Chain: Ola Maps → MapTiler → CartoDB
-  _applyOlaTiles(dark);
-}
-
-function _applyOlaTiles(dark) {
-  if (tileLayer && map) map.removeLayer(tileLayer);
-  const attr = '&copy; <a href="https://olamaps.io/">Ola Maps</a> &copy; <a href="https://osm.org/copyright">OSM</a>';
-  tileLayer = L.tileLayer(OLA_RASTER[dark ? 'dark' : 'light'], {
-    attribution: attr,
-    maxZoom: 20,
-    crossOrigin: true,
-  });
-
-  let fell = false;
-  tileLayer.on('tileerror', () => {
-    if (fell) return;
-    fell = true;
-    console.warn('[EUDORA] Ola Maps unavailable — falling back to MapTiler');
-    if (tileLayer && map) map.removeLayer(tileLayer);
-    tileLayer = buildTileLayer(dark, _applyCartoFallback);
-    tileLayer.addTo(map);
-  });
-
+  // Chain: MapTiler → CartoDB
+  tileLayer = buildTileLayer(dark, _applyCartoFallback);
   tileLayer.addTo(map);
 }
 
