@@ -14,6 +14,7 @@ function AQIGauge() {
     if (!canvas) return;
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
+    const c = ctx as CanvasRenderingContext2D;
 
     const DPR = window.devicePixelRatio || 1;
     const SIZE = 240;
@@ -21,7 +22,7 @@ function AQIGauge() {
     canvas.height = SIZE * DPR;
     canvas.style.width = SIZE + "px";
     canvas.style.height = SIZE + "px";
-    ctx.scale(DPR, DPR);
+    c.scale(DPR, DPR);
 
     const cx = SIZE / 2;
     const cy = SIZE / 2 + 20;
@@ -48,24 +49,24 @@ function AQIGauge() {
     let pausing = false;
 
     function drawArc() {
-      ctx.beginPath();
-      ctx.arc(cx, cy, R, ARC_START, ARC_END);
-      ctx.lineWidth = 16;
-      ctx.strokeStyle = "rgba(255,255,255,0.06)";
-      ctx.lineCap = "round";
-      ctx.stroke();
+      c.beginPath();
+      c.arc(cx, cy, R, ARC_START, ARC_END);
+      c.lineWidth = 16;
+      c.strokeStyle = "rgba(255,255,255,0.06)";
+      c.lineCap = "round";
+      c.stroke();
 
       const segCount = zones.length;
       const segSize = ARC_RANGE / segCount;
       zones.forEach((z, i) => {
         const start = ARC_START + segSize * i + 0.01;
         const end   = ARC_START + segSize * (i + 1) - 0.01;
-        ctx.beginPath();
-        ctx.arc(cx, cy, R, start, end);
-        ctx.lineWidth = 14;
-        ctx.strokeStyle = z.color + "cc";
-        ctx.lineCap = "round";
-        ctx.stroke();
+        c.beginPath();
+        c.arc(cx, cy, R, start, end);
+        c.lineWidth = 14;
+        c.strokeStyle = z.color + "cc";
+        c.lineCap = "round";
+        c.stroke();
       });
 
       for (let i = 0; i <= segCount; i++) {
@@ -74,12 +75,12 @@ function AQIGauge() {
         const iy = cy + Math.sin(a) * (R + 14);
         const ox = cx + Math.cos(a) * (R + 22);
         const oy = cy + Math.sin(a) * (R + 22);
-        ctx.beginPath();
-        ctx.moveTo(ix, iy);
-        ctx.lineTo(ox, oy);
-        ctx.lineWidth = 1.5;
-        ctx.strokeStyle = "rgba(240,235,227,0.2)";
-        ctx.stroke();
+        c.beginPath();
+        c.moveTo(ix, iy);
+        c.lineTo(ox, oy);
+        c.lineWidth = 1.5;
+        c.strokeStyle = "rgba(240,235,227,0.2)";
+        c.stroke();
       }
     }
 
@@ -94,44 +95,44 @@ function AQIGauge() {
       const tipX = cx + Math.cos(angle) * (R - 6);
       const tipY = cy + Math.sin(angle) * (R - 6);
 
-      ctx.save();
-      ctx.shadowColor = zone.color;
-      ctx.shadowBlur = 20;
-      ctx.beginPath();
-      ctx.moveTo(cx, cy);
-      ctx.lineTo(tipX, tipY);
-      ctx.lineWidth = 3;
-      ctx.strokeStyle = zone.color;
-      ctx.lineCap = "round";
-      ctx.stroke();
-      ctx.restore();
+      c.save();
+      c.shadowColor = zone.color;
+      c.shadowBlur = 20;
+      c.beginPath();
+      c.moveTo(cx, cy);
+      c.lineTo(tipX, tipY);
+      c.lineWidth = 3;
+      c.strokeStyle = zone.color;
+      c.lineCap = "round";
+      c.stroke();
+      c.restore();
 
-      ctx.beginPath();
-      ctx.arc(cx, cy, 8, 0, Math.PI * 2);
-      ctx.fillStyle = zone.color;
-      ctx.fill();
-      ctx.beginPath();
-      ctx.arc(cx, cy, 4, 0, Math.PI * 2);
-      ctx.fillStyle = "#1c1a17";
-      ctx.fill();
+      c.beginPath();
+      c.arc(cx, cy, 8, 0, Math.PI * 2);
+      c.fillStyle = zone.color;
+      c.fill();
+      c.beginPath();
+      c.arc(cx, cy, 4, 0, Math.PI * 2);
+      c.fillStyle = "#1c1a17";
+      c.fill();
     }
 
     function drawLabel(angle: number) {
       const zone = getZoneAt(angle);
-      ctx.textAlign = "center";
-      ctx.textBaseline = "middle";
+      c.textAlign = "center";
+      c.textBaseline = "middle";
 
       const routeLabel = pausing
         ? ""
         : phase === "eudora" ? "EUDORA ROUTE" : "NORMAL ROUTE";
 
-      ctx.font = "600 10px 'Outfit', sans-serif";
-      ctx.fillStyle = "rgba(158,152,144,0.75)";
-      ctx.fillText(routeLabel, cx, cy - 38);
+      c.font = "600 10px 'Outfit', sans-serif";
+      c.fillStyle = "rgba(158,152,144,0.75)";
+      c.fillText(routeLabel, cx, cy - 38);
 
-      ctx.font = "700 20px 'Outfit', sans-serif";
-      ctx.fillStyle = zone.color;
-      ctx.fillText(zone.label, cx, cy - 18);
+      c.font = "700 20px 'Outfit', sans-serif";
+      c.fillStyle = zone.color;
+      c.fillText(zone.label, cx, cy - 18);
     }
 
     function lerp(a: number, b: number, t: number) {
@@ -139,7 +140,7 @@ function AQIGauge() {
     }
 
     function frame() {
-      ctx.clearRect(0, 0, SIZE, SIZE);
+      c.clearRect(0, 0, SIZE, SIZE);
       drawArc();
 
       if (pausing) {
