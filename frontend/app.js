@@ -3,7 +3,7 @@
    LocationIQ geocoding · Leaflet · Glowing animated routes
    ============================================================ */
 
-const API_BASE = 'https://yatharthx1-eudora-backend.hf.space';
+const API_BASE = 'https://theyath-eudora.hf.space/';
 
 // ── LocationIQ ────────────────────────────────────────────────
 // Replace with your LocationIQ token from https://locationiq.com
