@@ -96,8 +96,8 @@ class SignalModel:
         self,
         graph,
         registry_file="data/signals_registry.json",
-        cluster_radius=80,
-        detection_radius=50,
+        cluster_radius=120,
+        detection_radius=80,
         avg_wait_per_signal=75,
         stop_probability=0.85,
     ):
