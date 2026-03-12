@@ -66,6 +66,7 @@ let map = null;
 let tileLayer = null;
 let polylines = {};
 let signalLayer = null;
+let allSignalLayer = null;
 let markers = { origin: null, dest: null };
 let routeData = {};
 let activeKey = null;
@@ -158,6 +159,30 @@ function initMap() {
   });
   L.control.zoom({ position: 'bottomright' }).addTo(map);
   applyTheme(true);
+  fetchAllSignals();
+}
+
+async function fetchAllSignals() {
+  try {
+    const res = await fetch(`${API_BASE}/api/get-signals`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    const coords = data.signals || [];
+    // Render into a dedicated layer that route selection never clears
+    if (allSignalLayer) { allSignalLayer.remove(); allSignalLayer = null; }
+    allSignalLayer = L.layerGroup();
+    coords.forEach(s => {
+      L.marker([s.lat, s.lng], { icon: signalIcon() })
+        .bindTooltip('Traffic Signal', {
+          direction: 'top', offset: [0, -8], className: 'signal-tip',
+        })
+        .addTo(allSignalLayer);
+    });
+    allSignalLayer.addTo(map);
+    console.log(`[EUDORA] Loaded ${coords.length} signals`);
+  } catch (e) {
+    console.warn('[EUDORA] Could not load signals:', e.message);
+  }
 }
 
 // ============================================================
