@@ -100,20 +100,53 @@ def turn_penalty(G, A, B, C):
 
     angle = math.degrees(math.acos(max(-1, min(1, dot / (mag1 * mag2)))))
 
-    if angle < 15:
-        return 0
-    elif angle < 60:
-        penalty = 1
+    # Only penalise genuinely sharp turns (U-turns / very tight corners)
+    # Mild penalties to avoid over-influencing route selection
+    if angle < 25:
+        return 0          # straight or very slight bend — no penalty
+    elif angle < 80:
+        penalty = 0.3     # moderate turn — small nudge
+    elif angle < 140:
+        penalty = 0.8     # sharp turn
     else:
-        penalty = 3
+        penalty = 1.5     # near U-turn
 
     cross = v1[0]*v2[1] - v1[1]*v2[0]
 
-    # Right turns are heavier (India drives on left)
+    # Right turns slightly heavier (India drives on left)
     if cross < 0:
-        penalty *= 1.5
+        penalty *= 1.2
 
     return penalty
+
+
+def _is_left_turn(G, A, B, C):
+    """
+    Returns True if the maneuver A→B→C is a left turn.
+    In India (left-hand traffic), left turns are free — no signal wait.
+    Uses the cross product: positive = left turn, negative = right turn.
+    Straight (angle < 25°) is NOT treated as a free turn.
+    """
+    lat1, lon1 = G.nodes[A]["y"], G.nodes[A]["x"]
+    lat2, lon2 = G.nodes[B]["y"], G.nodes[B]["x"]
+    lat3, lon3 = G.nodes[C]["y"], G.nodes[C]["x"]
+
+    v1 = (lat2 - lat1, lon2 - lon1)
+    v2 = (lat3 - lat2, lon3 - lon2)
+
+    mag1 = math.sqrt(v1[0]**2 + v1[1]**2)
+    mag2 = math.sqrt(v2[0]**2 + v2[1]**2)
+    if mag1 == 0 or mag2 == 0:
+        return False
+
+    dot   = v1[0]*v2[0] + v1[1]*v2[1]
+    angle = math.degrees(math.acos(max(-1, min(1, dot / (mag1 * mag2)))))
+
+    if angle < 25:
+        return False  # going straight — must face signal
+
+    cross = v1[0]*v2[1] - v1[1]*v2[0]
+    return cross > 0  # positive cross = left turn in lat/lon space
 
 
 def summarize_route(G, route):
@@ -130,7 +163,13 @@ def summarize_route(G, route):
         total_distance += edge.get("length", 0)
 
         jid = edge.get("junction_id")
-        if jid is not None:
+        if jid is not None and jid not in seen_junctions:
+            # Direction-aware: skip signal if driver is making a free left turn
+            # (left turns in India don't require stopping at the signal)
+            if i > 0:
+                prev_node = route[i - 1]
+                if _is_left_turn(G, prev_node, u, v):
+                    continue   # free left — don't count this signal
             seen_junctions.add(jid)
 
     return {
@@ -193,9 +232,16 @@ def weighted_directional_route(
     pq = []
 
     def edge_cost(edge, prev_node=None, curr_node=None, next_node=None):
+        # If this edge leads into a signalled junction but the maneuver
+        # is a free left turn, don't apply the signal delay cost
+        sig_delay = edge.get("signal_delay", 0)
+        if sig_delay and prev_node and curr_node and next_node:
+            if _is_left_turn(G, prev_node, curr_node, next_node):
+                sig_delay = 0.0
+
         cost = (
             w_time      * (edge.get("live_time") or edge.get("base_time", 0)) +
-            w_signal    * edge.get("signal_delay",    0) +
+            w_signal    * sig_delay +
             w_hierarchy * edge.get("road_penalty",    0) +
             w_pollution * edge.get("pollution_delay", 0)
         )

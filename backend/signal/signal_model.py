@@ -71,7 +71,6 @@ EXPECTED IMPROVEMENT
 import json
 import os
 import math
-import pickle
 import logging
 import osmnx as ox
 
@@ -96,8 +95,8 @@ class SignalModel:
         self,
         graph,
         registry_file="data/signals_registry.json",
-        cluster_radius=120,
-        detection_radius=80,
+        cluster_radius=90,
+        detection_radius=150,
         avg_wait_per_signal=75,
         stop_probability=0.85,
     ):
@@ -108,10 +107,6 @@ class SignalModel:
         self.avg_wait         = avg_wait_per_signal
         self.stop_prob        = stop_probability
         self.junctions        = []
-
-        # Cache file lives next to the registry JSON
-        base = os.path.splitext(registry_file)[0]
-        self._cache_file = base + "_clustered.pkl"
 
         self._load_and_cluster_signals()
 
@@ -124,20 +119,6 @@ class SignalModel:
             logger.warning("[SignalModel] Registry file not found.")
             return
 
-        # ── Try cache first ───────────────────────────────────────────────────
-        # Valid if cache exists AND is newer than the registry JSON.
-        # This means: edit the JSON → cache auto-invalidates on next restart.
-        if self._cache_is_valid():
-            logger.info("[SignalModel] Loading clustered junctions from cache.")
-            try:
-                with open(self._cache_file, "rb") as f:
-                    self.junctions = pickle.load(f)
-                logger.info(f"[SignalModel] Cache hit. Junctions: {len(self.junctions)}")
-                return
-            except Exception as e:
-                logger.warning(f"[SignalModel] Cache load failed ({e}), recomputing...")
-
-        # ── Load JSON ─────────────────────────────────────────────────────────
         with open(self.registry_file, "r") as f:
             data = json.load(f)
 
@@ -146,89 +127,66 @@ class SignalModel:
             logger.warning("[SignalModel] No signals found in registry.")
             return
 
-        # ── Batch nearest_nodes (1 KD-tree query instead of N) ───────────────
-        #
-        # OLD: for sig in signals: node = nearest_nodes(G, lng, lat)  ← N calls
-        # NEW: nodes = nearest_nodes(G, all_lons, all_lats)           ← 1 call
-        #
-        # OSMnx's nearest_nodes accepts lists and does a single vectorised
-        # KD-tree query, returning results in the same order.
-        lats = [sig["lat"] for sig in raw_signals.values()]
-        lons = [sig["lng"] for sig in raw_signals.values()]
+        # ── Use raw coordinates directly — no graph snapping ─────────────────
+        # Snapping to graph nodes is unreliable because OSM nodes don't always
+        # align with where signals are placed. Instead we cluster the raw
+        # signal lat/lngs directly and detect by proximity at runtime.
+        raw_points = [
+            {"lat": sig["lat"], "lng": sig["lng"]}
+            for sig in raw_signals.values()
+        ]
 
-        snapped = ox.distance.nearest_nodes(self.G, lons, lats)
-        snapped_nodes = list(set(snapped))   # deduplicate
-
-        # ── Fast O(n²) clustering with inline arithmetic ──────────────────────
-        #
-        # Pre-extract coordinates into a plain list — avoids repeated
-        # dict lookups inside the nested loop.
-        node_coords = {
-            node: (self.G.nodes[node]["y"], self.G.nodes[node]["x"])
-            for node in snapped_nodes
-        }
-
-        clusters = []
+        # ── Cluster nearby signals into single junctions ──────────────────────
         visited  = set()
+        clusters = []
 
-        for node in snapped_nodes:
-            if node in visited:
+        for i, pt in enumerate(raw_points):
+            if i in visited:
                 continue
-
-            cluster = [node]
-            visited.add(node)
-            lat1, lon1 = node_coords[node]
-
-            for other in snapped_nodes:
-                if other in visited:
+            cluster = [pt]
+            visited.add(i)
+            for j, other in enumerate(raw_points):
+                if j in visited:
                     continue
-
-                lat2, lon2 = node_coords[other]
-
-                # ── Early exit: if latitude diff alone exceeds radius, skip ──
-                # This avoids the sqrt for most pairs.
-                if abs(lat2 - lat1) * _LAT_TO_M > self.cluster_radius:
+                if abs(other["lat"] - pt["lat"]) * _LAT_TO_M > self.cluster_radius:
                     continue
-
-                dist = _fast_dist_m(lat1, lon1, lat2, lon2)
-                if dist <= self.cluster_radius:
+                if _fast_dist_m(pt["lat"], pt["lng"], other["lat"], other["lng"]) <= self.cluster_radius:
                     cluster.append(other)
-                    visited.add(other)
-
+                    visited.add(j)
             clusters.append(cluster)
 
-        # ── Build junction list ───────────────────────────────────────────────
+        # ── Build junction list from cluster centroids ────────────────────────
         for cluster in clusters:
-            lats_c = [node_coords[n][0] for n in cluster]
-            lons_c = [node_coords[n][1] for n in cluster]
             self.junctions.append({
-                "nodes": cluster,
-                "lat":   sum(lats_c) / len(lats_c),
-                "lng":   sum(lons_c) / len(lons_c),
+                "lat": sum(p["lat"] for p in cluster) / len(cluster),
+                "lng": sum(p["lng"] for p in cluster) / len(cluster),
             })
 
         logger.info(f"[SignalModel] Junctions formed: {len(self.junctions)}")
 
-        # ── Save cache for next startup ───────────────────────────────────────
-        try:
-            with open(self._cache_file, "wb") as f:
-                pickle.dump(self.junctions, f, protocol=5)
-            logger.info(f"[SignalModel] Cache saved: {self._cache_file}")
-        except Exception as e:
-            logger.warning(f"[SignalModel] Could not save cache: {e}")
 
-    def _cache_is_valid(self) -> bool:
-        """Return True if the cache file exists and is newer than the registry."""
-        if not os.path.exists(self._cache_file):
-            return False
-        try:
-            registry_mtime = os.path.getmtime(self.registry_file)
-            cache_mtime    = os.path.getmtime(self._cache_file)
-            return cache_mtime >= registry_mtime
-        except OSError:
-            return False
 
     # ── Route Analysis ────────────────────────────────────────────────────────
+
+    @staticmethod
+    def _point_to_segment_dist(plat, plng, alat, alng, blat, blng):
+        """Perpendicular distance from point P to segment A→B in metres."""
+        ax = (alng - plng) * _LAT_TO_M * math.cos(plat * math.pi / 180)
+        ay = (alat - plat) * _LAT_TO_M
+        bx = (blng - plng) * _LAT_TO_M * math.cos(plat * math.pi / 180)
+        by = (blat - plat) * _LAT_TO_M
+
+        ab_sq = ax*ax + ay*ay + bx*bx + by*by  # rough check
+        dx, dy = bx - ax, by - ay
+        seg_len_sq = dx*dx + dy*dy
+
+        if seg_len_sq == 0:
+            return math.sqrt(ax*ax + ay*ay)
+
+        t = max(0.0, min(1.0, ((-ax)*dx + (-ay)*dy) / seg_len_sq))
+        cx = ax + t*dx
+        cy = ay + t*dy
+        return math.sqrt(cx*cx + cy*cy)
 
     def analyze_route(self, route):
         signal_count = 0
@@ -242,15 +200,24 @@ class SignalModel:
         for junction in self.junctions:
             j_lat = junction["lat"]
             j_lng = junction["lng"]
+            detected = False
 
-            for (node_lat, node_lng) in route_coords:
-                # Early exit on latitude diff before computing full distance
-                if abs(node_lat - j_lat) * _LAT_TO_M > self.detection_radius:
+            # Check each edge segment of the route, not just nodes
+            # Fixes sparse-node highways where no single node is within radius
+            for i in range(len(route_coords) - 1):
+                alat, alng = route_coords[i]
+                blat, blng = route_coords[i + 1]
+
+                # Quick bbox reject
+                if (min(alat, blat) - j_lat) * _LAT_TO_M > self.detection_radius:
+                    continue
+                if (j_lat - max(alat, blat)) * _LAT_TO_M > self.detection_radius:
                     continue
 
-                dist = _fast_dist_m(node_lat, node_lng, j_lat, j_lng)
+                dist = self._point_to_segment_dist(j_lat, j_lng, alat, alng, blat, blng)
                 if dist <= self.detection_radius:
                     signal_count += 1
+                    detected = True
                     break
 
         expected_stops = signal_count * self.stop_prob
@@ -265,10 +232,27 @@ class SignalModel:
     # ── Attach Signal Weights to Graph ────────────────────────────────────────
 
     def attach_signal_weights(self):
+        # Mark ALL nodes within detection_radius of each junction centroid.
+        # A single dot in the registry may represent a 4-way junction —
+        # all roads passing through that junction must carry the signal weight,
+        # not just the one road the dot happens to snap to.
         node_to_junction = {}
+        all_node_coords = [
+            (n, self.G.nodes[n]["y"], self.G.nodes[n]["x"])
+            for n in self.G.nodes
+        ]
+
         for jid, junction in enumerate(self.junctions):
-            for node in junction["nodes"]:
-                node_to_junction[node] = jid
+            jlat, jlng = junction["lat"], junction["lng"]
+            for node, nlat, nlng in all_node_coords:
+                if abs(nlat - jlat) * _LAT_TO_M > self.detection_radius:
+                    continue
+                if _fast_dist_m(jlat, jlng, nlat, nlng) <= self.detection_radius:
+                    # If node already tagged by a closer junction, keep that one
+                    if node not in node_to_junction:
+                        node_to_junction[node] = jid
+
+        logger.info(f"[SignalModel] Nodes tagged with signal: {len(node_to_junction)}")
 
         expected_delay_min = self.stop_prob * (self.avg_wait / 60.0)
 
