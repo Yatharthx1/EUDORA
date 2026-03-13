@@ -3,132 +3,179 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import Link from "next/link";
 
-export default function SceneOne() {
-  const sectionRef = useRef<HTMLElement>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const ctxRef = useRef<CanvasRenderingContext2D | null>(null);
-  const titleRef = useRef<HTMLHeadingElement>(null);
-  const subtitleRef = useRef<HTMLParagraphElement>(null);
-  const buttonRef = useRef<HTMLAnchorElement>(null);
-  const lastFrameRef = useRef(-1);
-  const [images, setImages] = useState<HTMLImageElement[]>([]);
-  const [ready, setReady] = useState(false);
-  const frameCount = 96;
+// We sample every 2nd frame → 48 bitmaps instead of 96.
+// The animation is visually identical at half the download size (~5MB vs ~10MB).
+const TOTAL_FRAMES = 96;
+const STEP = 2; // load frames 1, 3, 5 ... 95
+const LOADED_COUNT = Math.ceil(TOTAL_FRAMES / STEP); // 48
 
-  // Preload all 96 frames
-  useEffect(() => {
-    const loaded: HTMLImageElement[] = new Array(frameCount);
-    let count = 0;
-    for (let i = 0; i < frameCount; i++) {
-      const img = new Image();
-      img.decoding = "async";
-      const num = (i + 1).toString().padStart(2, "0");
-      img.src = `/images/scene1/${num}.webp`;
-      img.onload = () => {
-        loaded[i] = img;
-        count++;
-        if (count === frameCount) { setImages(loaded); setReady(true); }
-      };
-      img.onerror = () => {
-        count++;
-        if (count === frameCount) { setImages(loaded); setReady(true); }
-      };
-    }
+export default function SceneOne() {
+  const sectionRef  = useRef<HTMLElement>(null);
+  const canvasRef   = useRef<HTMLCanvasElement>(null);
+  const ctxRef      = useRef<CanvasRenderingContext2D | null>(null);
+  const titleRef    = useRef<HTMLHeadingElement>(null);
+  const subtitleRef = useRef<HTMLParagraphElement>(null);
+  const buttonRef   = useRef<HTMLAnchorElement>(null);
+  const lastFrameRef = useRef(-1);
+
+  // Store pre-decoded ImageBitmaps — drawImage(ImageBitmap) is synchronous GPU upload,
+  // no decode cost on the main thread during scroll.
+  const bitmapsRef = useRef<(ImageBitmap | null)[]>(new Array(LOADED_COUNT).fill(null));
+  const loadedRef  = useRef(0);
+  const [ready, setReady] = useState(false);
+
+  const drawFrame = useCallback((frameIndex: number, force?: boolean) => {
+    const ctx    = ctxRef.current;
+    const canvas = canvasRef.current;
+    if (!ctx || !canvas) return;
+
+    // Map 0–95 scroll frame → 0–47 bitmap index
+    const bitmapIdx = Math.min(
+      Math.floor(frameIndex / STEP),
+      LOADED_COUNT - 1
+    );
+    if (bitmapIdx === lastFrameRef.current && !force) return;
+
+    const bmp = bitmapsRef.current[bitmapIdx];
+    if (!bmp) return;
+
+    lastFrameRef.current = bitmapIdx;
+
+    const cw = canvas.width;
+    const ch = canvas.height;
+    const scale = Math.max(cw / bmp.width, ch / bmp.height);
+    const sw = bmp.width  * scale;
+    const sh = bmp.height * scale;
+    ctx.drawImage(bmp, (cw - sw) / 2, (ch - sh) / 2, sw, sh);
   }, []);
 
-  // Cache context once
+  // Load frames: first 4 immediately (covers first scroll segment),
+  // rest in idle batches.
+  useEffect(() => {
+    const loadBitmap = (bitmapIdx: number) => {
+      const frameNum = bitmapIdx * STEP + 1; // 1-based, odd frames
+      const url = `/images/scene1/${frameNum.toString().padStart(2, "0")}.webp`;
+
+      fetch(url)
+        .then(r => r.blob())
+        .then(blob => createImageBitmap(blob))
+        .then(bmp => {
+          bitmapsRef.current[bitmapIdx] = bmp;
+          loadedRef.current++;
+
+          // Ready as soon as first 4 bitmaps arrive
+          if (loadedRef.current === 4 || loadedRef.current === LOADED_COUNT) {
+            setReady(true);
+          }
+          // Draw frame 0 the moment it's available
+          if (bitmapIdx === 0) drawFrame(0, true);
+        })
+        .catch(() => {
+          loadedRef.current++;
+          if (loadedRef.current === LOADED_COUNT) setReady(true);
+        });
+    };
+
+    const scheduleIdle = (fn: () => void) => {
+      if ("requestIdleCallback" in window) {
+        (window as Window & { requestIdleCallback: (fn: () => void) => void })
+          .requestIdleCallback(fn);
+      } else {
+        setTimeout(fn, 50);
+      }
+    };
+
+    // Priority: first 4 frames right away
+    for (let i = 0; i < Math.min(4, LOADED_COUNT); i++) loadBitmap(i);
+
+    // Rest in idle chunks of 8
+    let next = 4;
+    const loadChunk = () => {
+      const end = Math.min(next + 8, LOADED_COUNT);
+      for (let i = next; i < end; i++) loadBitmap(i);
+      next = end;
+      if (next < LOADED_COUNT) scheduleIdle(loadChunk);
+    };
+    scheduleIdle(loadChunk);
+  }, [drawFrame]);
+
+  // Cache 2D context
   useEffect(() => {
     const canvas = canvasRef.current;
     if (canvas) ctxRef.current = canvas.getContext("2d", { alpha: false });
   }, []);
 
-  // Draw frame with cover fit — skips if same frame
-  const drawFrame = useCallback((frameIndex: number, force?: boolean) => {
-    const ctx = ctxRef.current;
-    const canvas = canvasRef.current;
-    if (!ctx || !canvas || images.length === 0) return;
-    const idx = Math.min(Math.max(frameIndex, 0), frameCount - 1);
-    if (idx === lastFrameRef.current && !force) return;
-    lastFrameRef.current = idx;
-    const img = images[idx];
-    if (!img) return;
-    const cw = canvas.width;
-    const ch = canvas.height;
-    const scale = Math.max(cw / img.naturalWidth, ch / img.naturalHeight);
-    const sw = img.naturalWidth * scale;
-    const sh = img.naturalHeight * scale;
-    ctx.drawImage(img, (cw - sw) / 2, (ch - sh) / 2, sw, sh);
-  }, [images]);
-
-  // Size canvas + draw frame 0
+  // Resize canvas → redraw current frame
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const resize = () => {
-      canvas.width = window.innerWidth;
+      canvas.width  = window.innerWidth;
       canvas.height = window.innerHeight;
-      if (!ctxRef.current) ctxRef.current = canvas.getContext("2d", { alpha: false });
-      if (ready && images.length > 0) drawFrame(0, true);
+      if (!ctxRef.current)
+        ctxRef.current = canvas.getContext("2d", { alpha: false });
+      drawFrame(Math.max(0, lastFrameRef.current * STEP), true);
     };
     resize();
     window.addEventListener("resize", resize);
     return () => window.removeEventListener("resize", resize);
-  }, [ready, images, drawFrame]);
+  }, [drawFrame]);
 
-  // Scroll listener (rAF throttled)
+  // Scroll → frame + text animations
   useEffect(() => {
-    if (!ready || images.length === 0) return;
+    if (!ready) return;
     let ticking = false;
 
     const onScroll = () => {
       const section = sectionRef.current;
       if (!section) return;
       const scrolled = -section.getBoundingClientRect().top;
-      const total = section.offsetHeight - window.innerHeight;
+      const total    = section.offsetHeight - window.innerHeight;
       const progress = Math.min(Math.max(scrolled / total, 0), 1);
-      drawFrame(Math.min(Math.floor(progress * 95), 95));
 
+      drawFrame(Math.floor(progress * (TOTAL_FRAMES - 1)));
+
+      // ── Title ──────────────────────────────────────────────────
       if (titleRef.current && subtitleRef.current) {
-        // Title emerges as dust settles — starts at 0.68, fully visible by 0.85
         if (progress < 0.68) {
-          titleRef.current.style.opacity = "0";
+          titleRef.current.style.opacity   = "0";
           titleRef.current.style.transform = "scale(1.08) translateY(18px)";
-          titleRef.current.style.filter = "blur(14px)";
-          subtitleRef.current.style.opacity = "0";
+          titleRef.current.style.filter    = "blur(14px)";
+          subtitleRef.current.style.opacity   = "0";
           subtitleRef.current.style.transform = "translateY(10px)";
         } else if (progress <= 0.85) {
-          const p = (progress - 0.68) / 0.17;
-          const ease = p < 0.5 ? 2 * p * p : -1 + (4 - 2 * p) * p; // ease in-out
-          titleRef.current.style.opacity = String(ease);
+          const p    = (progress - 0.68) / 0.17;
+          const ease = p < 0.5 ? 2 * p * p : -1 + (4 - 2 * p) * p;
+          titleRef.current.style.opacity   = String(ease);
           titleRef.current.style.transform = `scale(${1.08 - 0.08 * ease}) translateY(${18 - 18 * ease}px)`;
-          titleRef.current.style.filter = `blur(${14 - 14 * ease}px)`;
-          // Subtitle lags slightly behind
-          const sp = Math.max(0, (progress - 0.74) / 0.11);
+          titleRef.current.style.filter    = `blur(${14 - 14 * ease}px)`;
+          const sp    = Math.max(0, (progress - 0.74) / 0.11);
           const sEase = sp < 0.5 ? 2 * sp * sp : -1 + (4 - 2 * sp) * sp;
-          subtitleRef.current.style.opacity = String(Math.min(1, sEase));
+          subtitleRef.current.style.opacity   = String(Math.min(1, sEase));
           subtitleRef.current.style.transform = `translateY(${10 - 10 * Math.min(1, sEase)}px)`;
         } else {
-          titleRef.current.style.opacity = "1";
+          titleRef.current.style.opacity   = "1";
           titleRef.current.style.transform = "scale(1) translateY(0px)";
-          titleRef.current.style.filter = "blur(0px)";
-          subtitleRef.current.style.opacity = "1";
+          titleRef.current.style.filter    = "blur(0px)";
+          subtitleRef.current.style.opacity   = "1";
           subtitleRef.current.style.transform = "translateY(0px)";
         }
       }
 
+      // ── Button ─────────────────────────────────────────────────
       if (buttonRef.current) {
         if (progress < 0.86) {
-          buttonRef.current.style.opacity = "0";
-          buttonRef.current.style.transform = "translateY(20px)";
+          buttonRef.current.style.opacity       = "0";
+          buttonRef.current.style.transform     = "translateY(20px)";
           buttonRef.current.style.pointerEvents = "none";
         } else if (progress <= 0.94) {
           const bp = (progress - 0.86) / 0.08;
-          buttonRef.current.style.opacity = String(bp);
-          buttonRef.current.style.transform = `translateY(${20 - 20 * bp}px)`;
+          buttonRef.current.style.opacity       = String(bp);
+          buttonRef.current.style.transform     = `translateY(${20 - 20 * bp}px)`;
           buttonRef.current.style.pointerEvents = "auto";
         } else {
-          buttonRef.current.style.opacity = "1";
-          buttonRef.current.style.transform = "translateY(0px)";
+          buttonRef.current.style.opacity       = "1";
+          buttonRef.current.style.transform     = "translateY(0px)";
           buttonRef.current.style.pointerEvents = "auto";
         }
       }
@@ -144,7 +191,7 @@ export default function SceneOne() {
     window.addEventListener("scroll", handleScroll, { passive: true });
     onScroll();
     return () => window.removeEventListener("scroll", handleScroll);
-  }, [ready, images, drawFrame]);
+  }, [ready, drawFrame]);
 
   return (
     <section
@@ -164,7 +211,7 @@ export default function SceneOne() {
       >
         <canvas
           ref={canvasRef}
-          style={{ position: "absolute", top: 0, left: 0, display: "block", willChange: "transform" }}
+          style={{ position: "absolute", top: 0, left: 0, display: "block" }}
         />
         <div
           style={{
@@ -207,9 +254,11 @@ export default function SceneOne() {
               willChange: "opacity",
             }}
           >
-            Navigate Smarter. <span style={{ color: "#e8a845" }}>Breathe Better.</span>
+            Navigate Smarter.{" "}
+            <span style={{ color: "#e8a845" }}>Breathe Better.</span>
           </p>
         </div>
+
         <div
           style={{
             position: "absolute",
@@ -234,24 +283,25 @@ export default function SceneOne() {
               letterSpacing: "0.1em",
               textDecoration: "none",
               cursor: "pointer",
-              transition: "background 0.3s ease, color 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease",
+              transition:
+                "background 0.3s ease, color 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease",
               opacity: 0,
               pointerEvents: "none",
               willChange: "transform, opacity",
             }}
             onMouseEnter={(e) => {
               const t = e.currentTarget;
-              t.style.background = "#e8a845";
-              t.style.color = "#1c1a17";
-              t.style.borderColor = "#e8a845";
-              t.style.boxShadow = "0 8px 32px rgba(232,168,69,0.3)";
+              t.style.background   = "#e8a845";
+              t.style.color        = "#1c1a17";
+              t.style.borderColor  = "#e8a845";
+              t.style.boxShadow    = "0 8px 32px rgba(232,168,69,0.3)";
             }}
             onMouseLeave={(e) => {
               const t = e.currentTarget;
-              t.style.background = "transparent";
-              t.style.color = "#f0ebe3";
-              t.style.borderColor = "rgba(232,168,69,0.6)";
-              t.style.boxShadow = "none";
+              t.style.background   = "transparent";
+              t.style.color        = "#f0ebe3";
+              t.style.borderColor  = "rgba(232,168,69,0.6)";
+              t.style.boxShadow    = "none";
             }}
           >
             Try EUDORA &rarr;
