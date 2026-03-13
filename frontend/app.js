@@ -1009,22 +1009,25 @@ function onNavPosition(pos) {
   const h = heading != null && !isNaN(heading) ? heading : (navState.lastHeading || 0);
   navState.lastHeading = h;
 
-  // Move or create arrow marker
+  // Find nearest point on route first so we can snap to road
+  const { idx, dist } = nearestPointIndex(userPos, navState.routeCoords);
+
+  // Snap marker to the route line; only use raw GPS if badly off-route (>80m)
+  const snappedPos = dist < 0.08 ? navState.routeCoords[idx] : userPos;
+
+  // Move or create arrow marker at snapped (on-road) position
   if (!navState.userMarker) {
-    navState.userMarker = L.marker(userPos, {
+    navState.userMarker = L.marker(snappedPos, {
       icon: userArrowIcon(h),
       zIndexOffset: 1000,
     }).addTo(map);
   } else {
-    navState.userMarker.setLatLng(userPos);
+    navState.userMarker.setLatLng(snappedPos);
     navState.userMarker.setIcon(userArrowIcon(h));
   }
 
-  // Pan map to follow user smoothly
-  map.panTo(userPos, { animate: true, duration: 0.6 });
-
-  // Find nearest point on route
-  const { idx, dist } = nearestPointIndex(userPos, navState.routeCoords);
+  // Pan map to follow snapped position
+  map.panTo(snappedPos, { animate: true, duration: 0.6 });
 
   // Off-route detection (>80m away)
   if (dist > 0.08) {
