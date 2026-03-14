@@ -201,70 +201,32 @@ function injectGlowFilter(key, color) {
 
   const f = document.createElementNS('http://www.w3.org/2000/svg', 'filter');
   f.setAttribute('id', id);
-  f.setAttribute('x', '-40%'); f.setAttribute('y', '-40%');
-  f.setAttribute('width', '180%'); f.setAttribute('height', '180%');
+  f.setAttribute('x', '-60%'); f.setAttribute('y', '-60%');
+  f.setAttribute('width', '220%'); f.setAttribute('height', '220%');
   f.innerHTML = `
-    <feGaussianBlur in="SourceGraphic" stdDeviation="2.5" result="blur"/>
-    <feColorMatrix in="blur" type="matrix"
-      values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 28 -8" result="glow"/>
-    <feMerge>
-      <feMergeNode in="glow"/>
-      <feMergeNode in="glow"/>
-      <feMergeNode in="SourceGraphic"/>
-    </feMerge>
+    <feGaussianBlur in="SourceGraphic" stdDeviation="4" result="b"/>
+    <feColorMatrix in="b" type="matrix"
+      values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 22 -7" result="g"/>
+    <feMerge><feMergeNode in="g"/><feMergeNode in="SourceGraphic"/></feMerge>
   `;
   defs.appendChild(f);
 }
 
-// Tracks the active flow animation so we can cancel it when switching routes
-let _flowAnimId = null;
-
 function animateDraw(poly) {
-  // Cancel any previous flow animation
-  if (_flowAnimId) { cancelAnimationFrame(_flowAnimId); _flowAnimId = null; }
-
   const el = poly.getElement();
   if (!el) return;
-
-  // Step 1: draw-in animation (line traces the route)
   const len = el.getTotalLength ? el.getTotalLength() : 4000;
   el.style.transition = 'none';
-  el.style.strokeDasharray = String(len);
-  el.style.strokeDashoffset = String(len);
-
+  el.style.strokeDasharray = len;
+  el.style.strokeDashoffset = len;
   requestAnimationFrame(() => requestAnimationFrame(() => {
-    el.style.transition = 'stroke-dashoffset 0.85s cubic-bezier(0.4,0,0.2,1)';
+    el.style.transition = 'stroke-dashoffset 0.9s cubic-bezier(0.4,0,0.2,1)';
     el.style.strokeDashoffset = '0';
-
-    // Step 2: after draw-in finishes, switch to flowing dash loop
-    setTimeout(() => {
-      el.style.transition = 'none';
-      const DASH = 18;   // visible dash length (px)
-      const GAP  = 14;   // gap between dashes (px)
-      const PERIOD = DASH + GAP;
-      el.style.strokeDasharray = `${DASH} ${GAP}`;
-      let offset = 0;
-      const flow = () => {
-        offset = (offset - 1.4) % PERIOD;
-        el.style.strokeDashoffset = String(offset);
-        _flowAnimId = requestAnimationFrame(flow);
-      };
-      _flowAnimId = requestAnimationFrame(flow);
-    }, 880);
   }));
 }
 
-function stopFlowAnimation(poly) {
-  if (_flowAnimId) { cancelAnimationFrame(_flowAnimId); _flowAnimId = null; }
-  const el = poly?.getElement();
-  if (!el) return;
-  el.style.strokeDasharray = 'none';
-  el.style.strokeDashoffset = '0';
-}
-
 function clearPolylines() {
-  Object.values(polylines).forEach(({ casing, glow, line }) => {
-    if (casing) casing.remove();
+  Object.values(polylines).forEach(({ glow, line }) => {
     if (glow) glow.remove();
     if (line) line.remove();
   });
@@ -285,69 +247,53 @@ function drawRoutes(data) {
     const coords = route.route.geometry.coordinates.map(([lng, lat]) => [lat, lng]);
     coords.forEach(c => bounds.extend(c));
 
-    // Layer 1 — dark casing: gives the line a road-map "outlined" look
-    const casingPoly = L.polyline(coords, {
-      color: '#000000',
-      weight: cfg.weight + 8,
-      opacity: 0.55,
-      lineCap: 'round',
-      lineJoin: 'round',
-      smoothFactor: 0,
-      noClip: true,
-    }).addTo(map);
-
-    // Layer 2 — white glow border for soft halo depth
+    // White border underline for depth
     const borderPoly = L.polyline(coords, {
       color: '#ffffff',
       weight: cfg.weight + 4,
-      opacity: 0.12,
+      opacity: 0.15,
       lineCap: 'round',
       lineJoin: 'round',
-      smoothFactor: 0,
-      noClip: true,
+      smoothFactor: 0,   // disable point simplification — prevents segments snapping apart on zoom
+      noClip: true,      // don't clip at viewport edge — prevents breaks at tile boundaries on zoom
     }).addTo(map);
 
-    // Layer 3 — main colored line on top
+    // Main line
     const linePoly = L.polyline(coords, {
       color: cfg.color,
       weight: cfg.weight + 1,
-      opacity: 0.5,
+      opacity: 0.45,
       lineCap: 'round',
       lineJoin: 'round',
-      smoothFactor: 0,
-      noClip: true,
+      smoothFactor: 0,   // disable point simplification — prevents segments snapping apart on zoom
+      noClip: true,      // don't clip at viewport edge — prevents breaks at tile boundaries on zoom
     }).addTo(map);
 
     linePoly.on('click', () => selectRoute(key));
     borderPoly.on('click', () => selectRoute(key));
-    casingPoly.on('click', () => selectRoute(key));
 
-    polylines[key] = { casing: casingPoly, glow: borderPoly, line: linePoly };
+    polylines[key] = { glow: borderPoly, line: linePoly };
   });
 
   map.fitBounds(bounds, { padding: [64, 64] });
 }
 
 function activatePolyline(key) {
-  Object.entries(polylines).forEach(([k, { casing, glow, line }]) => {
+  Object.entries(polylines).forEach(([k, { glow, line }]) => {
     const cfg = ROUTE_CFG[k];
     const isActive = k === key;
 
     if (isActive) {
-      // Active: full 3-layer stack, vivid + flowing
-      if (casing) casing.setStyle({ opacity: 0.7, weight: cfg.weight + 9 });
-      glow.setStyle({ opacity: 0.25, weight: cfg.weight + 6 });
-      line.setStyle({ opacity: 1, weight: cfg.weight + 2, color: cfg.color });
-      if (casing) { casing.bringToFront(); }
+      // Active: thick white border + vivid color on top
+      glow.setStyle({ opacity: 0.3, weight: cfg.weight + 6 });
+      line.setStyle({ opacity: 1, weight: cfg.weight + 2 });
       glow.bringToFront();
       line.bringToFront();
       animateDraw(line);
     } else {
-      // Inactive: muted, stop any flow animation
-      stopFlowAnimation(line);
-      if (casing) casing.setStyle({ opacity: 0.3, weight: cfg.weight + 6 });
-      glow.setStyle({ opacity: 0.05, weight: cfg.weight + 4 });
-      line.setStyle({ opacity: 0.28, weight: cfg.weight, color: cfg.color });
+      // Inactive: thin, muted but visible
+      glow.setStyle({ opacity: 0.08, weight: cfg.weight + 4 });
+      line.setStyle({ opacity: 0.3, weight: cfg.weight });
     }
   });
 }
