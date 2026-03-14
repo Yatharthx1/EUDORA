@@ -243,14 +243,15 @@ export default function SceneOne() {
           <p
             ref={subtitleRef}
             style={{
-              fontSize: "clamp(1rem, 2.5vw, 1.4rem)",
+              fontSize: "clamp(0.65rem, 2.2vw, 1.4rem)",
               fontWeight: 400,
-              letterSpacing: "0.2em",
+              letterSpacing: "clamp(0.05em, 0.8vw, 0.2em)",
               color: "#f0ebe3",
               textTransform: "uppercase",
               textShadow: "0 0 40px rgba(0,0,0,0.9), 0 2px 8px rgba(0,0,0,0.6)",
               opacity: 0,
               marginTop: 20,
+              whiteSpace: "nowrap",
               willChange: "opacity",
             }}
           >
