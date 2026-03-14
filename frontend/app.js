@@ -254,6 +254,8 @@ function drawRoutes(data) {
       opacity: 0.15,
       lineCap: 'round',
       lineJoin: 'round',
+      smoothFactor: 0,   // disable point simplification — prevents segments snapping apart on zoom
+      noClip: true,      // don't clip at viewport edge — prevents breaks at tile boundaries on zoom
     }).addTo(map);
 
     // Main line
@@ -263,6 +265,8 @@ function drawRoutes(data) {
       opacity: 0.45,
       lineCap: 'round',
       lineJoin: 'round',
+      smoothFactor: 0,   // disable point simplification — prevents segments snapping apart on zoom
+      noClip: true,      // don't clip at viewport edge — prevents breaks at tile boundaries on zoom
     }).addTo(map);
 
     linePoly.on('click', () => selectRoute(key));
