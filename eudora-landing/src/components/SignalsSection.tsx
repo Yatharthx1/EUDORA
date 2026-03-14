@@ -120,7 +120,7 @@ export default function SignalsSection() {
               12h
             </p>
             <p style={{ fontSize: "0.85rem", color: "#9e9890", letterSpacing: "0.1em", textTransform: "uppercase", margin: "8px 0 0" }}>
-              lost at every red light
+              LOST AT RED LIGHTS 
             </p>
             <div style={{ height: 1, background: "rgba(240,235,227,0.08)", margin: "24px 0" }} />
             <p style={{ fontSize: "0.95rem", color: "#9e9890", lineHeight: 1.7, margin: 0 }}>
