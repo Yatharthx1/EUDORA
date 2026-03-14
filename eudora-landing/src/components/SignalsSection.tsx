@@ -117,14 +117,14 @@ export default function SignalsSection() {
           {/* Right card */}
           <div ref={rightCardRef} style={glassCard}>
             <p style={{ fontSize: "3.5rem", fontWeight: 900, color: "#e05555", margin: 0, lineHeight: 1 }}>
-              90s
+              12h
             </p>
             <p style={{ fontSize: "0.85rem", color: "#9e9890", letterSpacing: "0.1em", textTransform: "uppercase", margin: "8px 0 0" }}>
               lost at every red light
             </p>
             <div style={{ height: 1, background: "rgba(240,235,227,0.08)", margin: "24px 0" }} />
             <p style={{ fontSize: "0.95rem", color: "#9e9890", lineHeight: 1.7, margin: 0 }}>
-              Every unnecessary red light costs you 90 seconds. EUDORA finds paths that keep you moving.
+              Unnecessary red lights costs you 12 hours every month. EUDORA finds paths that keep you moving.
             </p>
           </div>
         </div>
