@@ -1,7 +1,12 @@
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, HTTPException, Query, Request
 from slowapi import Limiter
 from slowapi.util import get_remote_address
+import logging
+
+from backend.routing.routing_engine import greenest_directional_route
 from backend.routing.routing_engine import weighted_directional_route
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 limiter = Limiter(key_func=get_remote_address)
@@ -71,13 +76,13 @@ def _in_indore(lat: float, lng: float) -> bool:
 
 
 @router.get("/get-routes")
-@limiter.limit("10/minute")
+@limiter.limit("5/minute")
 def get_routes(
     request: Request,
-    start_lat: float,
-    start_lng: float,
-    end_lat: float,
-    end_lng: float,
+    start_lat: float = Query(..., ge=-90.0, le=90.0),
+    start_lng: float = Query(..., ge=-180.0, le=180.0),
+    end_lat:   float = Query(..., ge=-90.0, le=90.0),
+    end_lng:   float = Query(..., ge=-180.0, le=180.0),
 ):
     G               = request.app.state.G
     pollution_model = request.app.state.pollution_model
@@ -127,21 +132,29 @@ def get_routes(
             max_distance_m=fastest_m * DISTANCE_BUDGET_FACTOR_OVERALL,
         )
 
+        greenest = greenest_directional_route(
+            G, start_lat, start_lng, end_lat, end_lng,
+            max_distance_m=fastest_m * DISTANCE_BUDGET_FACTOR_OVERALL,
+        )
+
         if least_signal    is None: least_signal    = fastest
         if least_pollution is None: least_pollution = fastest
         if overall_best    is None: overall_best    = fastest
+        if greenest        is None: greenest        = fastest
 
         return {
             "fastest":         build_response(G, fastest,         pollution_model),
             "least_signal":    build_response(G, least_signal,    pollution_model),
             "least_pollution": build_response(G, least_pollution, pollution_model),
             "overall_best":    build_response(G, overall_best,    pollution_model),
+            "greenest":        build_response(G, greenest,        pollution_model),
         }
 
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error("[get-routes] Internal error: %s", e, exc_info=True)
+        raise HTTPException(status_code=500, detail="Route computation failed.")
 
 
 @router.get("/get-signals")

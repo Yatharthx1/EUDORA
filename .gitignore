@@ -1,8 +1,48 @@
+# ── Secrets ───────────────────────────────────────────────
+.env
+.env.*
+!.env.example
+
+# ── Python ────────────────────────────────────────────────
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+dist/
+build/
+
+# ── Virtual environments ─────────────────────────────────
 venv/
 .venv/
-__pycache__/
-.pyc
-.env
-.DS_Store
-.vscode/
+
+# ── Binary data files (large, use Git LFS or exclude) ────
+*.pkl
+*.db
+*.sqlite3
+*.tif
+*.tiff
+
+# ── Cache ─────────────────────────────────────────────────
+cache/
 .cache/
+
+# ── IDE ───────────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# ── OS ────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+
+# ── Large media ──────────────────────────────────────────
+*.mp4
+
+# ── Temp / scratch scripts ───────────────────────────────
+replace.py
+
+# ── Debug HTML visualizations ────────────────────────────
+*_visualization.html
+*_signals.html
+*_debug.html

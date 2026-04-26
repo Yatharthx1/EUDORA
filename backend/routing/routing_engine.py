@@ -67,6 +67,8 @@ import math
 import osmnx as ox
 from itertools import count as _count
 
+from backend.trees.tree_cost import greenest_weight
+
 
 def turn_penalty(G, A, B, C):
     """
@@ -309,4 +311,77 @@ def weighted_directional_route(
             heapq.heappush(pq, (new_cost, next(_seq), current, next_node, new_dist))
 
     # No path found within constraints
+    return None
+
+
+def greenest_directional_route(
+        G,
+        origin_lat,
+        origin_lon,
+        dest_lat,
+        dest_lon,
+        max_distance_m=None):
+    """
+    Dijkstra route using precomputed tree-density edge costs.
+    """
+
+    origin = ox.distance.nearest_nodes(G, origin_lon, origin_lat)
+    dest   = ox.distance.nearest_nodes(G, dest_lon,   dest_lat)
+
+    if origin == dest:
+        return {"route": [origin], "distance_km": 0.0, "time_min": 0.0, "signals": 0}
+
+    _seq = _count()
+    visited = {}
+    prev_map = {}
+    pq = []
+
+    for neighbor in G.successors(origin):
+        if neighbor not in G[origin]:
+            continue
+        key, edge = next(iter(G[origin][neighbor].items()))
+        cost = greenest_weight(origin, neighbor, key, edge)
+        dist = edge.get("length", 0)
+        state = (origin, neighbor)
+        prev_map[state] = None
+        heapq.heappush(pq, (cost, next(_seq), origin, neighbor, dist))
+
+    while pq:
+        cost, _, prev, current, path_dist = heapq.heappop(pq)
+        state = (prev, current)
+
+        if state in visited and visited[state] <= cost:
+            continue
+        visited[state] = cost
+
+        if current == dest:
+            path = [current]
+            s = state
+            while s is not None:
+                path.append(s[0])
+                s = prev_map.get(s)
+            path.reverse()
+            return summarize_route(G, path)
+
+        for next_node in G.successors(current):
+            if next_node not in G[current]:
+                continue
+
+            key, edge = next(iter(G[current][next_node].items()))
+            new_dist = path_dist + edge.get("length", 0)
+
+            if max_distance_m is not None and new_dist > max_distance_m:
+                continue
+
+            new_state = (current, next_node)
+            if new_state in visited:
+                continue
+
+            new_cost = cost + greenest_weight(current, next_node, key, edge)
+
+            if new_state not in prev_map or new_cost < visited.get(new_state, float("inf")):
+                prev_map[new_state] = state
+
+            heapq.heappush(pq, (new_cost, next(_seq), current, next_node, new_dist))
+
     return None

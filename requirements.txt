@@ -1,11 +1,16 @@
+fastapi
 uvicorn
 networkx
 pydantic
 python-dotenv
 osmnx
-networkx
 matplotlib
 folium
 requests
 httpx
 slowapi
+numpy
+earthengine-api
+tqdm
+scikit-learn
+shapely

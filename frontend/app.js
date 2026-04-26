@@ -45,6 +45,16 @@ const ROUTE_CFG = {
              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
            </svg>`,
   },
+  greenest: {
+    label: 'Greenest',
+    desc: 'Highest canopy cover',
+    color: '#14b8a6',
+    weight: 4,
+    icon: `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+             <path d="M11 20A7 7 0 0 1 4 13c0-6 8-10 16-9-1 8-5 16-9 16z"/>
+             <path d="M4 20c4-5 8-8 13-10"/>
+           </svg>`,
+  },
   overall_best: {
     label: 'Best Overall',
     desc: 'Balanced across all factors',
@@ -235,7 +245,7 @@ function clearPolylines() {
 
 function drawRoutes(data) {
   clearPolylines();
-  const order = ['fastest', 'least_signal', 'least_pollution', 'overall_best'];
+  const order = ['fastest', 'least_signal', 'least_pollution', 'greenest', 'overall_best'];
   const bounds = L.latLngBounds();
 
   // Draw inactive routes first (below active)
@@ -438,7 +448,7 @@ function renderCards(data) {
   const container = document.getElementById('cards');
   container.innerHTML = '';
 
-  ['fastest', 'least_signal', 'least_pollution', 'overall_best'].forEach(key => {
+  ['fastest', 'least_signal', 'least_pollution', 'greenest', 'overall_best'].forEach(key => {
     const route = data[key];
     const cfg = ROUTE_CFG[key];
     if (!route) return;

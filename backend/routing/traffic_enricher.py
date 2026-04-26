@@ -55,7 +55,7 @@ SAMPLE_ROAD_TYPES = {
 
 MAX_SAMPLE_NODES  = 150
 REFRESH_INTERVAL  = 3 * 60 * 60        # 3 hours
-CACHE_FILE        = Path("cache/traffic_cache.json")
+CACHE_FILE        = Path(__file__).resolve().parents[2] / "cache" / "traffic_cache.json"
 IDW_POWER         = 2.0
 IDW_RADIUS_M      = 800.0
 MIN_SPEED_KMPH    = 2.0                 # floor to avoid division by zero
