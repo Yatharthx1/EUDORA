@@ -1,9 +1,9 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en" data-theme="dark">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>EUDORA — Smart Navigation</title>
+  <title>EUDORA â€” Smart Navigation</title>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -25,7 +25,7 @@
         </div>
         <div>
           <div class="brand-name">EUDORA</div>
-          <div class="brand-tagline">NAVIGATION · INDORE</div>
+          <div class="brand-tagline">NAVIGATION Â· INDORE</div>
         </div>
       </div>
       <div class="header-right">
@@ -56,10 +56,10 @@
         <div class="wp-row">
           <div class="wp-glyph wp-a">A</div>
           <div class="wp-field-wrap">
-            <input id="input-origin" type="text" placeholder="Starting point…" autocomplete="off" spellcheck="false" />
+            <input id="input-origin" type="text" placeholder="Starting pointâ€¦" autocomplete="off" spellcheck="false" />
             <div class="suggestions" id="sug-origin"></div>
           </div>
-          <!-- GPS button — uses device location for origin -->
+          <!-- GPS button â€” uses device location for origin -->
           <button class="wp-clear" id="gps-btn" aria-label="Use my location" title="Use my location" style="color: var(--accent, #7c6aff);">
             <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
               <circle cx="12" cy="12" r="3" fill="currentColor"/>
@@ -84,7 +84,7 @@
         <div class="wp-row">
           <div class="wp-glyph wp-b">B</div>
           <div class="wp-field-wrap">
-            <input id="input-dest" type="text" placeholder="Destination…" autocomplete="off" spellcheck="false" />
+            <input id="input-dest" type="text" placeholder="Destinationâ€¦" autocomplete="off" spellcheck="false" />
             <div class="suggestions" id="sug-dest"></div>
           </div>
           <button class="wp-clear" id="clear-dest" aria-label="Clear">
@@ -120,14 +120,14 @@
         <div class="loading-bars">
           <span></span><span></span><span></span><span></span><span></span>
         </div>
-        <span>Analysing road network…</span>
+        <span>Analysing road networkâ€¦</span>
       </div>
 
       <div id="cards"></div>
     </section>
 
     <footer class="panel-footer">
-      <span>OSM · LocationIQ · TomTom</span>
+      <span>OSM Â· LocationIQ Â· TomTom</span>
       <span id="footer-clock" class="footer-clock"></span>
     </footer>
   </aside>
@@ -144,5 +144,39 @@
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="app.js"></script>
+<style>
+#ec-btn{position:fixed;bottom:24px;right:24px;background:#00ff88;color:#000;width:56px;height:56px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:22px;cursor:pointer;z-index:9999;box-shadow:0 4px 20px rgba(0,255,136,0.4);transition:transform .2s;}
+#ec-btn:hover{transform:scale(1.1);}
+#ec-win{display:none;position:fixed;bottom:90px;right:24px;width:320px;height:460px;background:#0a0a0a;border:1px solid #222;border-radius:16px;z-index:9999;flex-direction:column;overflow:hidden;box-shadow:0 8px 40px rgba(0,0,0,0.7);}
+#ec-msgs{flex:1;overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:8px;height:350px;}
+.eu{background:#00ff88;color:#000;padding:10px 14px;border-radius:12px 12px 2px 12px;max-width:80%;align-self:flex-end;font-size:13px;font-weight:500;}
+.eb{background:#1a1a1a;color:#ddd;padding:10px 14px;border-radius:12px 12px 12px 2px;max-width:85%;align-self:flex-start;font-size:13px;line-height:1.6;white-space:pre-line;}
+</style>
+<div id="ec-btn" onclick="ecToggle()">🧭</div>
+<div id="ec-win">
+  <div style="padding:14px 16px;border-bottom:1px solid #1a1a1a;display:flex;justify-content:space-between;align-items:center;">
+    <span style="color:#00ff88;font-weight:bold;font-size:13px;letter-spacing:2px;">EUDORA ASSISTANT</span>
+    <span onclick="ecToggle()" style="color:#555;cursor:pointer;font-size:18px;">✕</span>
+  </div>
+  <div id="ec-msgs">
+    <div class="eb">Hi! I am your EUDORA navigator 🗺️
+
+Try asking:
+- Cleanest route from Vijay Nagar to Bengali Square
+- Fastest way to Palasia
+- Least signals from Rajwada to IIM</div>
+  </div>
+  <div style="padding:10px;border-top:1px solid #1a1a1a;display:flex;gap:8px;">
+    <input id="ec-in" placeholder="Ask about routes..." style="flex:1;background:#1a1a1a;border:1px solid #2a2a2a;color:#fff;padding:9px 12px;border-radius:8px;outline:none;font-size:13px;" onkeydown="if(event.key==='Enter')ecSend()"/>
+    <button onclick="ecSend()" style="background:#00ff88;color:#000;border:none;padding:9px 14px;border-radius:8px;cursor:pointer;font-weight:bold;font-size:15px;">→</button>
+  </div>
+</div>
+<script>
+const EC_BACKEND="http://localhost:8000";
+function ecToggle(){const w=document.getElementById('ec-win');w.style.display=w.style.display==='none'?'flex':'none';}
+function ecAdd(text,isUser){const box=document.getElementById('ec-msgs');const d=document.createElement('div');d.className=isUser?'eu':'eb';d.textContent=text;box.appendChild(d);box.scrollTop=box.scrollHeight;return d;}
+async function ecSend(){const inp=document.getElementById('ec-in');const msg=inp.value.trim();if(!msg)return;ecAdd(msg,true);inp.value='';const t=ecAdd('Finding your route... 🔍',false);try{const r=await fetch(`${EC_BACKEND}/chat`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:msg})});const d=await r.json();t.remove();ecAdd(d.reply,false);}catch(e){t.textContent='Could not connect. Is backend running?';}}
+</script>
 </body>
 </html>
+

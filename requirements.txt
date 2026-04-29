@@ -14,3 +14,7 @@ earthengine-api
 tqdm
 scikit-learn
 shapely
+groq
+fastapi
+uvicorn
+python-dotenv
