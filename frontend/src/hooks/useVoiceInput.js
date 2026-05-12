@@ -11,7 +11,10 @@ const getRecorderMimeType = () => {
   const candidates = [
     "audio/webm;codecs=opus",
     "audio/webm",
+    "audio/mp4",
     "audio/wav",
+    "audio/ogg;codecs=opus",
+    "audio/ogg",
   ];
   return candidates.find((type) => MediaRecorder.isTypeSupported(type)) || "";
 };
@@ -36,6 +39,8 @@ export function useVoiceInput() {
   const stopReasonRef = useRef("manual");
   const stopListeningRef = useRef(null);
   const onTranscriptReadyRef = useRef(null);
+  const browserRecognitionActiveRef = useRef(false);
+  const transcriptDeliveredRef = useRef(false);
 
   const clearFallbackTimer = useCallback(() => {
     if (fallbackTimerRef.current) {
@@ -126,6 +131,8 @@ export function useVoiceInput() {
       recognition.stop();
     } catch {
       // Recognition may already be stopped.
+    } finally {
+      browserRecognitionActiveRef.current = false;
     }
   }, [recognition]);
 
@@ -133,11 +140,20 @@ export function useVoiceInput() {
     if (!recognition) return false;
     try {
       recognition.start();
+      browserRecognitionActiveRef.current = true;
       return true;
     } catch {
       return false;
     }
   }, [recognition]);
+
+  const deliverTranscript = useCallback((text) => {
+    const finalText = (text || "").trim();
+    if (!finalText || transcriptDeliveredRef.current) return;
+    transcriptDeliveredRef.current = true;
+    setTranscript(finalText);
+    onTranscriptReadyRef.current?.(finalText);
+  }, []);
 
   useEffect(() => {
     if (typeof window === "undefined") return undefined;
@@ -165,16 +181,15 @@ export function useVoiceInput() {
     };
 
     rec.onend = () => {
+      browserRecognitionActiveRef.current = false;
       if (!isRecordingRef.current) {
         clearFallbackTimer();
         setIsListening(false);
       }
     };
 
-    rec.onerror = (event) => {
-      if (event.error !== "no-speech") {
-        console.error("Speech recognition error:", event.error);
-      }
+    rec.onerror = () => {
+      browserRecognitionActiveRef.current = false;
       if (!isRecordingRef.current) {
         clearFallbackTimer();
         setIsListening(false);
@@ -202,6 +217,9 @@ export function useVoiceInput() {
     speechStartedRef.current = false;
     silenceStartedAtRef.current = null;
     stopReasonRef.current = "manual";
+    transcriptDeliveredRef.current = false;
+
+    const browserStarted = startBrowserRecognition();
 
     const canRecord =
       typeof navigator !== "undefined" &&
@@ -209,7 +227,7 @@ export function useVoiceInput() {
       typeof MediaRecorder !== "undefined";
 
     if (!canRecord) {
-      if (startBrowserRecognition()) {
+      if (browserStarted) {
         setIsListening(true);
         resetFallbackTimer(START_SILENCE_TIMEOUT_MS);
       }
@@ -228,7 +246,6 @@ export function useVoiceInput() {
       isRecordingRef.current = true;
       recordingStartedAtRef.current = performance.now();
       setIsListening(true);
-      startBrowserRecognition();
       startVoiceActivityMonitor(stream);
 
       recorder.ondataavailable = (event) => {
@@ -271,16 +288,15 @@ export function useVoiceInput() {
         setTranscript(finalTranscript || "");
         setIsTranscribing(false);
 
-        if (finalTranscript) {
-          onTranscriptReadyRef.current?.(finalTranscript);
-        }
+        deliverTranscript(finalTranscript);
       };
 
       recorder.start();
-    } catch (error) {
-      console.error("Microphone recording failed:", error);
+    } catch {
       isRecordingRef.current = false;
-      if (startBrowserRecognition()) {
+      streamRef.current?.getTracks().forEach((track) => track.stop());
+      streamRef.current = null;
+      if (browserStarted || browserRecognitionActiveRef.current) {
         setIsListening(true);
         resetFallbackTimer(START_SILENCE_TIMEOUT_MS);
       } else {
@@ -292,6 +308,7 @@ export function useVoiceInput() {
     setIsListening,
     startBrowserRecognition,
     startVoiceActivityMonitor,
+    deliverTranscript,
     stopBrowserRecognition,
     stopVoiceActivityMonitor,
   ]);
@@ -312,7 +329,9 @@ export function useVoiceInput() {
     isRecordingRef.current = false;
     stopBrowserRecognition();
     setIsListening(false);
-  }, [clearFallbackTimer, setIsListening, stopBrowserRecognition, stopVoiceActivityMonitor]);
+    setIsTranscribing(false);
+    deliverTranscript(browserTranscriptRef.current);
+  }, [clearFallbackTimer, deliverTranscript, setIsListening, stopBrowserRecognition, stopVoiceActivityMonitor]);
 
   useEffect(() => {
     stopListeningRef.current = stopListening;

@@ -17,7 +17,6 @@ class EdgeTTS:
     def __init__(self, timeout: int = 20):
         """Initializes the Edge TTS client."""
         self.timeout = timeout
-        pygame.mixer.init()
 
     async def tts(self, text: str, voice: str = "en-US-AriaNeural") -> str:
         """
@@ -49,6 +48,8 @@ class EdgeTTS:
             filename (str): The path to the audio file.
         """
         try:
+            if not pygame.mixer.get_init():
+                pygame.mixer.init()
             pygame.mixer.music.load(filename)
             pygame.mixer.music.play()
             while pygame.mixer.music.get_busy():

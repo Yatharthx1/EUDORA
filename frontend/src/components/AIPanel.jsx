@@ -29,6 +29,7 @@ export function AIPanel() {
   const sendMessageRef = useRef(null);
   const lastInputWasMic = useRef(false);  // only auto-fire when conversation started via mic
   const micTimerRef = useRef(null);        // cancel pending auto-fire if user acts first
+  const touchHandledRef = useRef(false);
 
   const {
     transcript,
@@ -231,6 +232,22 @@ export function AIPanel() {
     }
   };
 
+  const handleMicTouchStart = (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    touchHandledRef.current = true;
+    toggleMic();
+  };
+
+  const handleMicClick = (event) => {
+    if (touchHandledRef.current) {
+      touchHandledRef.current = false;
+      return;
+    }
+    event.preventDefault();
+    toggleMic();
+  };
+
   return (
     <AnimatePresence>
       {mode === "ai" && (
@@ -315,7 +332,8 @@ export function AIPanel() {
               )}
               <button
                 className={`mic-btn ${isListening ? "is-listening" : ""}`}
-                onClick={toggleMic}
+                onTouchStart={handleMicTouchStart}
+                onClick={handleMicClick}
                 disabled={!isSupported || isTranscribing}
                 title={
                   isTranscribing

@@ -1,5 +1,16 @@
 import { API_BASE, ORCHESTRATOR_BASE } from "./config";
 
+const STT_TIMEOUT_MS = 12000;
+
+function getAudioFilename(audioBlob) {
+  const type = audioBlob?.type || "";
+  if (type.includes("mp4")) return "recording.mp4";
+  if (type.includes("mpeg")) return "recording.mp3";
+  if (type.includes("wav")) return "recording.wav";
+  if (type.includes("ogg")) return "recording.ogg";
+  return "recording.webm";
+}
+
 export async function geocodeSearch(query) {
   if (!query || query.length < 2) return [];
   try {
@@ -78,19 +89,23 @@ export async function textToSpeech(text) {
 }
 
 export async function speechToText(audioBlob) {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), STT_TIMEOUT_MS);
+
   try {
     const formData = new FormData();
-    formData.append("file", audioBlob, "recording.webm");
+    formData.append("file", audioBlob, getAudioFilename(audioBlob));
     const response = await fetch(`${ORCHESTRATOR_BASE}/voice-query`, {
       method: "POST",
       body: formData,
+      signal: controller.signal,
     });
     if (!response.ok) throw new Error("STT failed");
     const data = await response.json();
-    if (data.error) console.warn("STT error:", data.error);
     return data.transcript || "";
-  } catch (error) {
-    console.error(error);
+  } catch {
     return null;
+  } finally {
+    clearTimeout(timeoutId);
   }
 }
