@@ -5,7 +5,7 @@ import { useStore } from "../store";
 import { API_BASE, INDORE_CENTER, DEFAULT_ZOOM } from "../config";
 import { RoutePolylines } from "./RoutePolylines";
 import { SignalMarkers } from "./SignalMarkers";
-import { useMockGPS } from "../hooks/useMockGPS";
+import { useNavigationGPS } from "../hooks/useNavigationGPS";
 import "../styles/map.css";
 
 const navMarkerIcon = new L.DivIcon({
@@ -123,6 +123,15 @@ function MapClickToHandsOn() {
   return null;
 }
 
+function MapResizer() {
+  const map = useMap();
+  useEffect(() => {
+    const timer = setTimeout(() => map.invalidateSize(), 100);
+    return () => clearTimeout(timer);
+  }, [map]);
+  return null;
+}
+
 export function MapLayer() {
   const mode = useStore((state) => state.mode);
   const theme = useStore((state) => state.theme);
@@ -132,18 +141,8 @@ export function MapLayer() {
   const destination = useStore((state) => state.destination);
   const routes = useStore((state) => state.routes);
   const activeRoute = useStore((state) => state.activeRoute);
-  const setMode = useStore((state) => state.setMode);
   
-  useMockGPS();
-
-  function MapResizer() {
-    const map = useMap();
-    useEffect(() => {
-      const timer = setTimeout(() => map.invalidateSize(), 100);
-      return () => clearTimeout(timer);
-    }, [map]);
-    return null;
-  }
+  useNavigationGPS();
 
   const tileStyle = theme === "dark" ? "dataviz-dark" : "dataviz";
   const cartoFallback = theme === "dark"

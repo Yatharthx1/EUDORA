@@ -57,8 +57,8 @@ export function AIPanel() {
     const knownLocation = userLocation || origin;
     if (knownLocation?.lat && (knownLocation.lng || knownLocation.lon)) {
       return {
-        lat: knownLocation.lat,
-        lon: knownLocation.lng ?? knownLocation.lon,
+        lat: knownLocation.liveLat ?? knownLocation.lat,
+        lon: knownLocation.liveLng ?? knownLocation.lng ?? knownLocation.lon,
         label: knownLocation.label || "My Location",
       };
     }

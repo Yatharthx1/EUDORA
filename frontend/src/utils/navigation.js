@@ -30,6 +30,77 @@ export function calculateBearing(lat1, lon1, lat2, lon2) {
   return ((θ * 180) / Math.PI + 360) % 360; // in degrees
 }
 
+function toXY(lat, lng, originLat) {
+  const metersPerDegreeLat = 111320;
+  const metersPerDegreeLng = metersPerDegreeLat * Math.cos((originLat * Math.PI) / 180);
+  return {
+    x: lng * metersPerDegreeLng,
+    y: lat * metersPerDegreeLat,
+  };
+}
+
+function toLatLng(x, y, originLat) {
+  const metersPerDegreeLat = 111320;
+  const metersPerDegreeLng = metersPerDegreeLat * Math.cos((originLat * Math.PI) / 180);
+  return {
+    lat: y / metersPerDegreeLat,
+    lng: x / metersPerDegreeLng,
+  };
+}
+
+// Snap a live GPS point to the closest point on a GeoJSON LineString route.
+export function findClosestPointOnRoute(lat, lng, coordinates) {
+  if (!coordinates || coordinates.length === 0) {
+    return { lat, lng, heading: 0, segmentIndex: 0, distanceMeters: 0 };
+  }
+
+  if (coordinates.length === 1) {
+    const [routeLng, routeLat] = coordinates[0];
+    return {
+      lat: routeLat,
+      lng: routeLng,
+      heading: 0,
+      segmentIndex: 0,
+      distanceMeters: calculateDistance(lat, lng, routeLat, routeLng),
+    };
+  }
+
+  let closest = null;
+  const point = toXY(lat, lng, lat);
+
+  for (let i = 0; i < coordinates.length - 1; i++) {
+    const [lng1, lat1] = coordinates[i];
+    const [lng2, lat2] = coordinates[i + 1];
+    const a = toXY(lat1, lng1, lat);
+    const b = toXY(lat2, lng2, lat);
+    const dx = b.x - a.x;
+    const dy = b.y - a.y;
+    const lengthSq = dx * dx + dy * dy;
+    const t = lengthSq === 0
+      ? 0
+      : Math.max(0, Math.min(1, ((point.x - a.x) * dx + (point.y - a.y) * dy) / lengthSq));
+    const projectedX = a.x + t * dx;
+    const projectedY = a.y + t * dy;
+    const distanceSq = (point.x - projectedX) ** 2 + (point.y - projectedY) ** 2;
+
+    if (!closest || distanceSq < closest.distanceSq) {
+      const snapped = toLatLng(projectedX, projectedY, lat);
+      closest = {
+        lat: snapped.lat,
+        lng: snapped.lng,
+        heading: calculateBearing(lat1, lng1, lat2, lng2),
+        segmentIndex: i,
+        distanceMeters: Math.sqrt(distanceSq),
+        distanceSq,
+      };
+    }
+  }
+
+  const result = { ...closest };
+  delete result.distanceSq;
+  return result;
+}
+
 // Generate turn-by-turn instructions from GeoJSON LineString coordinates [[lng, lat], ...]
 export function generateInstructions(coordinates) {
   if (!coordinates || coordinates.length < 2) return [];
@@ -37,7 +108,6 @@ export function generateInstructions(coordinates) {
   const instructions = [];
   let currentSegmentDistance = 0;
   let lastBearing = null;
-  let startPoint = coordinates[0];
 
   for (let i = 0; i < coordinates.length - 1; i++) {
     const [lon1, lat1] = coordinates[i];
