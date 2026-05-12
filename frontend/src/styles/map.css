@@ -1,0 +1,38 @@
+.map-wrapper {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: 1;
+  background: var(--bg);
+  transition: filter 0.5s ease;
+}
+
+.map-wrapper.is-blurred {
+  filter: blur(12px) saturate(0.8);
+}
+
+.map-container {
+  width: 100vw;
+  height: 100vh;
+  background: var(--bg);
+}
+
+.leaflet-tile-pane {
+  filter: contrast(1.05);
+}
+
+.leaflet-control-container {
+  display: none;
+}
+
+.nav-marker-container {
+  background: none !important;
+  border: none !important;
+}
+
+.endpoint-pin {
+  background: none !important;
+  border: none !important;
+}

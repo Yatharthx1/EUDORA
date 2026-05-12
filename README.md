@@ -1,3 +1,9 @@
+---
+title: EUDORA
+sdk: docker
+app_port: 7860
+---
+
 # EUDORA
 ### Smart Multi-Factor Navigation for Indore, India
 

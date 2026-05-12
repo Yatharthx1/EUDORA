@@ -1,0 +1,12 @@
+.git
+.venv
+__pycache__
+*.pyc
+frontend/node_modules
+frontend/dist
+qwen-orchestrator/__pycache__
+qwen-orchestrator/audio_cache
+qwen-orchestrator/model.gguf
+cache
+eudora-hf/.git
+.env

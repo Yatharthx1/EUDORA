@@ -10,11 +10,10 @@ import time
 from pathlib import Path
 
 import httpx
-from fastapi import FastAPI, Request, Query, Response
+from fastapi import FastAPI, Request, Query, Response, Path as FastAPIPath
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from slowapi import Limiter, _rate_limit_exceeded_handler
-from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 from starlette.middleware.base import BaseHTTPMiddleware
 
@@ -30,17 +29,26 @@ LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO").upper()
 logging.basicConfig(level=getattr(logging, LOG_LEVEL, logging.INFO))
 logger = logging.getLogger(__name__)
 
+LOCAL_DEV = os.getenv("EUDORA_LOCAL_DEV", "1").lower() not in {"0", "false", "no"}
+
 PROJECT_ROOT = Path(__file__).resolve().parent
 GRAPHML_GRAPH_PATH = PROJECT_ROOT / "indore.graphml"
 CANOPY_STORE_PATH = PROJECT_ROOT / "data" / "canopy_scores.json"
 
+def get_client_ip(request: Request) -> str:
+    forwarded_for = request.headers.get("x-forwarded-for", "")
+    if forwarded_for:
+        return forwarded_for.split(",")[0].strip()
+    return request.client.host if request.client else "unknown"
+
+
 # ── Rate limiter ──────────────────────────────────────────────────────────────
-limiter = Limiter(key_func=get_remote_address)
+limiter = Limiter(key_func=get_client_ip, enabled=not LOCAL_DEV)
 
 # ── Allowed frontend origins ─────────────────────────────────────────────────
 ALLOWED_ORIGINS = os.getenv(
     "ALLOWED_ORIGINS",
-    "https://project-code-lb.vercel.app",
+    "http://localhost:3000,http://localhost:5173,http://localhost:5500,http://127.0.0.1:5500,http://localhost:8000",
 ).split(",")
 ALLOWED_ORIGINS = [origin.strip() for origin in ALLOWED_ORIGINS if origin.strip()]
 
@@ -55,13 +63,13 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         response.headers["X-Content-Type-Options"] = "nosniff"
         response.headers["X-Frame-Options"] = "DENY"
         response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
-        response.headers["Permissions-Policy"] = "geolocation=(), camera=(), microphone=()"
+        response.headers["Permissions-Policy"] = "geolocation=(self), microphone=(self), camera=()"
         response.headers["X-XSS-Protection"] = "1; mode=block"
         return response
 
 
 # ── Request size limiting middleware ──────────────────────────────────────────
-MAX_REQUEST_BODY_BYTES = 1_048_576  # 1 MB
+MAX_REQUEST_BODY_BYTES = int(os.getenv("MAX_REQUEST_BODY_BYTES", str(10 * 1024 * 1024)))
 
 class RequestSizeLimitMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
@@ -206,9 +214,9 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     lifespan=lifespan,
     title="EUDORA API",
-    docs_url=None,     # Disable Swagger UI in production
-    redoc_url=None,    # Disable ReDoc in production
-    openapi_url=None,  # Disable OpenAPI schema in production
+    docs_url="/docs" if LOCAL_DEV else None,
+    redoc_url="/redoc" if LOCAL_DEV else None,
+    openapi_url="/openapi.json" if LOCAL_DEV else None,
 )
 
 # Rate limit error handler
@@ -216,14 +224,15 @@ app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 # Security middlewares (order matters — outermost runs first)
-app.add_middleware(SecurityHeadersMiddleware)
+if not LOCAL_DEV:
+    app.add_middleware(SecurityHeadersMiddleware)
 app.add_middleware(RequestSizeLimitMiddleware)
 
-# CORS — only allow the production frontend origin
+# CORS is permissive in local dev so local frontends/orchestrators can call main.py.
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=ALLOWED_ORIGINS,
-    allow_methods=["GET"],
+    allow_origins=["*"] if LOCAL_DEV else ALLOWED_ORIGINS,
+    allow_methods=["*"] if LOCAL_DEV else ["GET", "POST", "OPTIONS"],
     allow_headers=["*"],
 )
 
@@ -252,46 +261,132 @@ async def health_check(request: Request):
     }
 
 
-# ── Geocode proxy — LocationIQ (forward search) ───────────────────────────────
-@app.get("/api/geocode")
-@limiter.limit("30/minute")
-async def geocode_proxy(
-    request: Request,
-    q: str = Query(..., min_length=2, max_length=200),
-):
-    """
-    Proxies autocomplete queries to LocationIQ.
-    The API key never reaches the frontend.
-    """
-    token = os.environ.get("LOCATIONIQ_TOKEN")
-    if not token:
-        return JSONResponse(status_code=503, content={"error": "Geocoding not configured."})
+# ── Geocoding helpers ─────────────────────────────────────────────────────────
 
-    params = {
-        "key": token,
-        "q": q,
-        "limit": 6,
-        "dedupe": 1,
-        "accept-language": "en",
-        "countrycodes": "in",
-        "lat": 22.7196,   # Indore centre bias
-        "lon": 75.8577,
-    }
-
+async def _ola_geocode(q: str) -> list | None:
+    """Ola Maps text search → normalized LocationIQ-style list."""
+    key = os.environ.get("OLA_MAPS_KEY")
+    if not key:
+        return None
     try:
         async with httpx.AsyncClient(timeout=6.0) as client:
-            res = await client.get("https://api.locationiq.com/v1/autocomplete", params=params)
-        if res.status_code == 200:
-            return res.json()
-        return JSONResponse(status_code=res.status_code, content={"error": "Geocoding error."})
-    except httpx.TimeoutException:
-        return JSONResponse(status_code=504, content={"error": "Geocoding timed out."})
+            res = await client.get(
+                "https://api.olamaps.io/places/v1/autocomplete",
+                params={
+                    "input": q,
+                    "api_key": key,
+                    "location": "22.7196,75.8577",
+                    "radius": 50000,
+                },
+                headers={"X-Request-Id": "eudora-geocode"},
+            )
+        if res.status_code != 200:
+            return None
+        data = res.json()
+        results = data.get("predictions") or []
+        normalized = []
+        for r in results[:6]:
+            loc = r.get("geometry", {}).get("location", {})
+            lat = loc.get("lat") or loc.get("latitude")
+            lon = loc.get("lng") or loc.get("longitude")
+            if not lat:
+                loc2 = r.get("place_details", {}).get("geometry", {}).get("location", {})
+                lat = loc2.get("lat")
+                lon = loc2.get("lng")
+            if not lat or not lon:
+                continue
+            normalized.append({
+                "display_name": r.get("description") or r.get("formatted_address") or r.get("name", ""),
+                "lat": str(lat),
+                "lon": str(lon),
+                "place_id": r.get("place_id", ""),
+            })
+        return normalized if normalized else None
     except Exception as e:
-        logger.error("[Geocode proxy] %s", e)
-        return JSONResponse(status_code=500, content={"error": "Internal error."})
+        logger.warning("[Geocode/Ola] %s", e)
+        return None
 
+async def _locationiq_geocode(q: str) -> list | None:
+    """LocationIQ autocomplete fallback."""
+    token = os.environ.get("LOCATIONIQ_TOKEN")
+    if not token:
+        return None
+    try:
+        async with httpx.AsyncClient(timeout=6.0) as client:
+            res = await client.get(
+                "https://api.locationiq.com/v1/autocomplete",
+                params={"key": token, "q": q, "limit": 6, "dedupe": 1,
+                        "accept-language": "en", "countrycodes": "in",
+                        "lat": 22.7196, "lon": 75.8577},
+            )
+        return res.json() if res.status_code == 200 else None
+    except Exception as e:
+        logger.warning("[Geocode/LocationIQ] %s", e)
+        return None
 
-# ── Reverse geocode proxy — LocationIQ ───────────────────────────────────────
+async def _ola_reverse(lat: float, lon: float) -> dict | None:
+    """Ola Maps reverse geocode → normalized LocationIQ-style dict."""
+    key = os.environ.get("OLA_MAPS_KEY")
+    if not key:
+        return None
+    try:
+        async with httpx.AsyncClient(timeout=6.0) as client:
+            res = await client.get(
+                "https://api.olamaps.io/places/v1/reverse-geocode",
+                params={"latlng": f"{lat},{lon}", "api_key": key},
+                headers={"X-Request-Id": "eudora-reverse"},
+            )
+        if res.status_code != 200:
+            return None
+        data = res.json()
+        results = data.get("results") or []
+        if not results:
+            return None
+        top = results[0]
+        return {
+            "display_name": top.get("formatted_address", ""),
+            "lat": str(lat),
+            "lon": str(lon),
+            "address": top.get("address_components", {}),
+        }
+    except Exception as e:
+        logger.warning("[Reverse/Ola] %s", e)
+        return None
+
+async def _locationiq_reverse(lat: float, lon: float) -> dict | None:
+    """LocationIQ reverse geocode fallback."""
+    token = os.environ.get("LOCATIONIQ_TOKEN")
+    if not token:
+        return None
+    try:
+        async with httpx.AsyncClient(timeout=6.0) as client:
+            res = await client.get(
+                "https://us1.locationiq.com/v1/reverse",
+                params={"key": token, "lat": lat, "lon": lon, "format": "json"},
+            )
+        return res.json() if res.status_code == 200 else None
+    except Exception as e:
+        logger.warning("[Reverse/LocationIQ] %s", e)
+        return None
+
+# ── Proxy endpoints ───────────────────────────────────────────────────────────
+
+@app.get("/api/geocode")
+@limiter.limit("30/minute")
+async def geocode_proxy(request: Request, q: str = Query(..., min_length=2, max_length=200)):
+    result = await _ola_geocode(q)
+    if result is None:
+        logger.info(f"[Geocode] Ola Maps failed or not configured for '{q}' — falling back to LocationIQ")
+        result = await _locationiq_geocode(q)
+        if result is not None:
+            logger.info(f"[Geocode] Successfully used LocationIQ for '{q}'")
+    else:
+        logger.info(f"[Geocode] Successfully used Ola Maps for '{q}'")
+        
+    if result is None:
+        return JSONResponse(status_code=503, content={"error": "Geocoding unavailable."})
+    return result
+
 @app.get("/api/reverse")
 @limiter.limit("30/minute")
 async def reverse_proxy(
@@ -299,24 +394,18 @@ async def reverse_proxy(
     lat: float = Query(..., ge=-90.0, le=90.0),
     lon: float = Query(..., ge=-180.0, le=180.0),
 ):
-    """
-    Proxies reverse geocode queries to LocationIQ.
-    """
-    token = os.environ.get("LOCATIONIQ_TOKEN")
-    if not token:
-        return JSONResponse(status_code=503, content={"error": "Geocoding not configured."})
-
-    params = {"key": token, "lat": lat, "lon": lon, "format": "json"}
-
-    try:
-        async with httpx.AsyncClient(timeout=6.0) as client:
-            res = await client.get("https://us1.locationiq.com/v1/reverse", params=params)
-        if res.status_code == 200:
-            return res.json()
-        return JSONResponse(status_code=res.status_code, content={"error": "Reverse geocoding error."})
-    except Exception as e:
-        logger.error("[Reverse proxy] %s", e)
-        return JSONResponse(status_code=500, content={"error": "Internal error."})
+    result = await _ola_reverse(lat, lon)
+    if result is None:
+        logger.info(f"[Reverse] Ola Maps failed or not configured for {lat},{lon} — falling back to LocationIQ")
+        result = await _locationiq_reverse(lat, lon)
+        if result is not None:
+            logger.info(f"[Reverse] Successfully used LocationIQ for {lat},{lon}")
+    else:
+        logger.info(f"[Reverse] Successfully used Ola Maps for {lat},{lon}")
+        
+    if result is None:
+        return JSONResponse(status_code=503, content={"error": "Reverse geocoding unavailable."})
+    return result
 
 
 # ── Tile proxy — MapTiler ─────────────────────────────────────────────────────
@@ -325,9 +414,9 @@ async def reverse_proxy(
 async def tile_proxy(
     request: Request,
     style: str,
-    z: int = Query(..., ge=0, le=22),
-    x: int = Query(..., ge=0),
-    y: int = Query(..., ge=0),
+    z: int = FastAPIPath(..., ge=0, le=22),
+    x: int = FastAPIPath(..., ge=0),
+    y: int = FastAPIPath(..., ge=0),
 ):
     """
     Proxies map tile requests to MapTiler.
@@ -357,5 +446,5 @@ async def tile_proxy(
             headers={"Cache-Control": "public, max-age=86400"},
         )
     except Exception as e:
-        logger.error("[Tile proxy] %s", e)
-        return JSONResponse(status_code=500, content={"error": "Tile fetch failed."})
+        logger.error(f"[Tile proxy] Exception: {str(e)}", exc_info=True)
+        return JSONResponse(status_code=500, content={"error": f"Tile fetch failed: {str(e)}"})

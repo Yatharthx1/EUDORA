@@ -14,3 +14,6 @@ earthengine-api
 tqdm
 scikit-learn
 shapely
+pygame
+edge-tts
+python-multipart

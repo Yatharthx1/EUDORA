@@ -1,0 +1,8 @@
+fastapi
+uvicorn
+httpx
+llama-cpp-python
+huggingface_hub
+pydantic
+edge-tts
+python-multipart

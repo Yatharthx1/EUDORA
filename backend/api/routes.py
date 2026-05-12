@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException, Query, Request
 from slowapi import Limiter
-from slowapi.util import get_remote_address
 import logging
+import os
 
 from backend.routing.routing_engine import greenest_directional_route
 from backend.routing.routing_engine import weighted_directional_route
@@ -9,7 +9,17 @@ from backend.routing.routing_engine import weighted_directional_route
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
-limiter = Limiter(key_func=get_remote_address)
+
+
+def get_client_ip(request: Request) -> str:
+    forwarded_for = request.headers.get("x-forwarded-for", "")
+    if forwarded_for:
+        return forwarded_for.split(",")[0].strip()
+    return request.client.host if request.client else "unknown"
+
+
+LOCAL_DEV = os.getenv("EUDORA_LOCAL_DEV", "1").lower() not in {"0", "false", "no"}
+limiter = Limiter(key_func=get_client_ip, enabled=not LOCAL_DEV)
 
 DISTANCE_BUDGET_FACTOR_SIGNAL     = 1.8
 DISTANCE_BUDGET_FACTOR_POLLUTION  = 1.8

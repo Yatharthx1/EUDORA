@@ -1,0 +1,215 @@
+.search-container {
+  position: fixed;
+  top: max(24px, env(safe-area-inset-top));
+  left: 0;
+  right: 0;
+  margin: 0 auto;
+  width: min(620px, calc(100vw - 32px));
+  z-index: 50;
+  border-radius: 24px;
+  padding: 16px;
+  transition: opacity 0.2s ease;
+}
+
+.search-container.is-hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.search-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.brand-lockup {
+  display: flex;
+  align-items: center;
+  margin-right: 12px;
+}
+
+.brand-word {
+  font-family: var(--font-brand);
+  font-weight: 600;
+  font-size: 16px;
+  letter-spacing: 0.08em;
+  color: var(--ink);
+}
+
+.search-input-wrap {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  position: relative;
+}
+
+.search-input {
+  width: 100%;
+  background: transparent;
+  border: none;
+  color: var(--ink);
+  font-size: 16px;
+  font-weight: 500;
+}
+
+.search-input::placeholder {
+  color: var(--muted);
+}
+
+.search-input-icon {
+  margin-right: 12px;
+  color: var(--muted);
+}
+
+/* Expanded state / Waypoints */
+.waypoints-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  position: relative;
+}
+
+.waypoints-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  position: relative;
+}
+
+.waypoint-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--surface-tint);
+  padding: 12px 16px;
+  border-radius: 12px;
+  border: 1px solid var(--border-subtle);
+}
+
+.waypoint-row:focus-within {
+  border-color: var(--border-focus);
+  background: var(--surface-active);
+}
+
+.waypoint-glyph {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--muted);
+  width: 16px;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.waypoint-glyph.is-a { color: var(--glyph-origin); }
+.waypoint-glyph.is-b { color: #7c6aff; }
+
+.waypoint-input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  color: var(--ink);
+  font-size: 15px;
+  min-width: 0;
+}
+
+.waypoint-input::placeholder {
+  color: var(--placeholder);
+}
+
+/* Action buttons inside waypoint rows */
+.waypoint-action-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  background: var(--surface-active);
+  border: 1px solid var(--glass-border);
+  color: var(--ink);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.15s;
+}
+
+.waypoint-action-btn:hover {
+  background: var(--surface-hover);
+}
+
+/* Swap button — floating between the two rows, on the right edge */
+.swap-btn {
+  position: absolute;
+  right: -14px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--bg);
+  border: 1px solid var(--glass-border-strong);
+  color: var(--muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 5;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.swap-btn:hover {
+  background: var(--surface-hover);
+  border-color: var(--border-focus);
+  color: var(--ink);
+}
+
+/* Autocomplete Dropdown */
+.autocomplete-dropdown {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  right: 0;
+  background: var(--glass-bg);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid var(--glass-border);
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: var(--dropdown-shadow);
+  z-index: 60;
+}
+
+.autocomplete-item {
+  padding: 12px 16px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.autocomplete-item:hover, .autocomplete-item.is-active {
+  background: var(--surface-hover);
+}
+
+.autocomplete-name {
+  font-weight: 500;
+  font-size: 15px;
+  color: var(--ink);
+}
+
+.autocomplete-address {
+  font-size: 12px;
+  color: var(--muted);
+  margin-top: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ── Mobile: leave room for theme toggle ─────────────── */
+@media (max-width: 768px) {
+  .search-container {
+    width: calc(100vw - 76px);
+    margin-right: auto;
+    margin-left: 16px;
+    left: 0;
+    right: auto;
+  }
+}
