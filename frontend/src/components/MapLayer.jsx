@@ -149,6 +149,7 @@ export function MapLayer() {
   const cartoFallback = theme === "dark"
     ? "https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png"
     : "https://a.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png";
+  const tileUrl = API_BASE + "/api/tiles/" + tileStyle + "/{z}/{x}/{y}.png";
 
   const showEndpointPins = routes && !isNavigating;
 
@@ -190,7 +191,7 @@ export function MapLayer() {
         {/* Primary: MapTiler (switches style by theme) */}
         <TileLayer
           key={tileStyle}
-          url={`${API_BASE}/api/tiles/${tileStyle}/{z}/{x}/{y}.png`}
+          url={tileUrl}
           attribution='&copy; <a href="https://www.maptiler.com/">MapTiler</a> &copy; <a href="https://www.openstreetmap.org/copyright">OSM</a>'
           errorTileUrl={cartoFallback}
           maxZoom={20}
