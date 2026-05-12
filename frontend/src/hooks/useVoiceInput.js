@@ -70,21 +70,33 @@ export function useVoiceInput() {
     }
   }, []);
 
-  const startVoiceActivityMonitor = useCallback((stream) => {
+  const startVoiceActivityMonitor = useCallback(async (stream) => {
     stopVoiceActivityMonitor();
 
-    const AudioContext = window.AudioContext || window.webkitAudioContext;
-    if (!AudioContext) {
+    const AudioContextCtor = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContextCtor) {
       resetFallbackTimer(START_SILENCE_TIMEOUT_MS);
       return;
     }
 
-    const audioContext = new AudioContext();
+    const audioContext = new AudioContextCtor();
+    // Mobile browsers start AudioContext suspended; analyser reads as silence until resumed,
+    // which falsely triggers the START_SILENCE_TIMEOUT "no-speech" stop (~2.3s).
+    try {
+      if (audioContext.state === "suspended") {
+        await audioContext.resume();
+      }
+    } catch {
+      // Resume can fail if gesture context was lost; VAD still runs with best-effort levels.
+    }
+
     const source = audioContext.createMediaStreamSource(stream);
     const analyser = audioContext.createAnalyser();
     analyser.fftSize = 1024;
     source.connect(analyser);
     audioContextRef.current = audioContext;
+    // Silence timeout should start once the analyser pipeline is active (after resume), not before.
+    recordingStartedAtRef.current = performance.now();
 
     const samples = new Uint8Array(analyser.fftSize);
 
@@ -244,9 +256,7 @@ export function useVoiceInput() {
       streamRef.current = stream;
       mediaRecorderRef.current = recorder;
       isRecordingRef.current = true;
-      recordingStartedAtRef.current = performance.now();
       setIsListening(true);
-      startVoiceActivityMonitor(stream);
 
       recorder.ondataavailable = (event) => {
         if (event.data?.size > 0) {
@@ -290,6 +300,8 @@ export function useVoiceInput() {
 
         deliverTranscript(finalTranscript);
       };
+
+      await startVoiceActivityMonitor(stream);
 
       recorder.start();
     } catch {
