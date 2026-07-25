@@ -16,6 +16,7 @@ export default function SceneOne() {
   const titleRef    = useRef<HTMLHeadingElement>(null);
   const subtitleRef = useRef<HTMLParagraphElement>(null);
   const buttonRef   = useRef<HTMLAnchorElement>(null);
+  const scrollIndicatorRef = useRef<HTMLDivElement>(null);
   const lastFrameRef = useRef(-1);
 
   // Store pre-decoded ImageBitmaps — drawImage(ImageBitmap) is synchronous GPU upload,
@@ -179,6 +180,17 @@ export default function SceneOne() {
           buttonRef.current.style.pointerEvents = "auto";
         }
       }
+
+      // ── Scroll Indicator ──────────────────────────────────────
+      if (scrollIndicatorRef.current) {
+        if (progress < 0.15) {
+          const sp = 1 - progress / 0.15;
+          scrollIndicatorRef.current.style.opacity = String(sp);
+          scrollIndicatorRef.current.style.transform = `translateY(${progress * 20}px)`;
+        } else {
+          scrollIndicatorRef.current.style.opacity = "0";
+        }
+      }
     };
 
     const handleScroll = () => {
@@ -307,6 +319,62 @@ export default function SceneOne() {
           >
             Try EUDORA &rarr;
           </Link>
+        </div>
+
+        {/* Scroll Display Indicator */}
+        <div
+          ref={scrollIndicatorRef}
+          style={{
+            position: "absolute",
+            bottom: "28px",
+            left: 0,
+            right: 0,
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            gap: "8px",
+            zIndex: 10,
+            pointerEvents: "none",
+            transition: "opacity 0.2s ease, transform 0.2s ease",
+            willChange: "opacity, transform",
+          }}
+        >
+          <span
+            style={{
+              fontSize: "0.75rem",
+              letterSpacing: "0.2em",
+              textTransform: "uppercase",
+              color: "rgba(240, 235, 227, 0.7)",
+              fontWeight: 500,
+              textShadow: "0 2px 4px rgba(0,0,0,0.8)",
+            }}
+          >
+            Scroll to Explore
+          </span>
+          <div
+            style={{
+              width: "22px",
+              height: "36px",
+              borderRadius: "18px",
+              border: "2px solid rgba(232, 168, 69, 0.6)",
+              display: "flex",
+              justifyContent: "center",
+              paddingTop: "6px",
+              boxShadow: "0 0 12px rgba(0,0,0,0.5)",
+              background: "rgba(28, 26, 23, 0.4)",
+              backdropFilter: "blur(4px)",
+            }}
+          >
+            <div
+              className="animate-bounce"
+              style={{
+                width: "4px",
+                height: "8px",
+                borderRadius: "2px",
+                background: "#e8a845",
+              }}
+            />
+          </div>
         </div>
       </div>
     </section>

@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>EUDORA — Signal Map · Indore</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;700;800&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:         #070707;
+      --amber:      #F5A623;
+      --amber-glow: rgba(245,166,35,0.35);
+      --white:      #F0EBE1;
+      --muted:      #5a5a54;
+      --border:     rgba(240,235,225,0.07);
+      --panel-bg:   rgba(10,10,10,0.92);
+      --F:          'Syne', sans-serif;
+      --FM:         'IBM Plex Mono', monospace;
+    }
+
+    html, body { height: 100%; overflow: hidden; background: var(--bg); }
+
+    #map { position: fixed; inset: 0; z-index: 0; }
+
+    .leaflet-control-attribution { display: none !important; }
+
+    /* ── TOP BAR ───────────────────────────────────────── */
+    #topbar {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      z-index: 1000;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 28px;
+      height: 56px;
+      background: var(--panel-bg);
+      border-bottom: 1px solid var(--border);
+      backdrop-filter: blur(20px);
+    }
+
+    #topbar-logo {
+      font-family: var(--F);
+      font-weight: 800;
+      font-size: 1.05rem;
+      letter-spacing: 0.22em;
+      color: var(--white);
+    }
+
+    #topbar-logo span { color: var(--amber); text-shadow: 0 0 14px var(--amber-glow); }
+
+    #topbar-tag {
+      font-family: var(--FM);
+      font-size: 0.68rem;
+      letter-spacing: 0.15em;
+      color: var(--muted);
+      text-transform: uppercase;
+    }
+
+    /* ── LOADING ───────────────────────────────────────── */
+    #loading {
+      position: fixed;
+      inset: 0;
+      z-index: 2000;
+      background: var(--bg);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 20px;
+      transition: opacity 0.6s ease;
+    }
+
+    #loading.fade { opacity: 0; pointer-events: none; }
+
+    #loading-logo {
+      font-family: var(--F);
+      font-weight: 800;
+      font-size: 1.8rem;
+      letter-spacing: 0.3em;
+      color: var(--white);
+    }
+
+    #loading-logo span { color: var(--amber); }
+
+    #loading-bar-wrap {
+      width: 180px; height: 2px;
+      background: rgba(255,255,255,0.06);
+      border-radius: 2px; overflow: hidden;
+    }
+
+    #loading-bar {
+      height: 100%; width: 0%;
+      background: var(--amber);
+      box-shadow: 0 0 10px var(--amber-glow);
+      transition: width 0.4s ease;
+      border-radius: 2px;
+    }
+
+    #loading-txt {
+      font-family: var(--FM);
+      font-size: 0.65rem;
+      letter-spacing: 0.2em;
+      color: var(--muted);
+      text-transform: uppercase;
+    }
+
+    /* ── ZOOM CONTROLS ─────────────────────────────────── */
+    .leaflet-control-zoom {
+      border: 1px solid var(--border) !important;
+      border-radius: 8px !important;
+      overflow: hidden;
+    }
+
+    .leaflet-control-zoom a {
+      background: var(--panel-bg) !important;
+      color: var(--muted) !important;
+      border-color: var(--border) !important;
+      font-family: var(--F) !important;
+      transition: color 0.2s, background 0.2s;
+    }
+
+    .leaflet-control-zoom a:hover {
+      background: rgba(245,166,35,0.08) !important;
+      color: var(--amber) !important;
+    }
+  </style>
+</head>
+<body>
+
+  <div id="loading">
+    <div id="loading-logo">EUD<span>O</span>RA</div>
+    <div id="loading-bar-wrap"><div id="loading-bar"></div></div>
+    <div id="loading-txt">Loading map…</div>
+  </div>
+
+  <div id="topbar">
+    <div id="topbar-logo">EUD<span>O</span>RA</div>
+    <div id="topbar-tag">Indore · Dark Map</div>
+  </div>
+
+  <div id="map"></div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script>
+    // Animate loading bar
+    const bar = document.getElementById('loading-bar');
+    let p = 0;
+    const barTick = setInterval(() => {
+      p = Math.min(p + Math.random() * 14, 88);
+      bar.style.width = p + '%';
+    }, 180);
+
+    function dismissLoading() {
+      clearInterval(barTick);
+      bar.style.width = '100%';
+      setTimeout(() => {
+        const el = document.getElementById('loading');
+        el.classList.add('fade');
+        setTimeout(() => el.remove(), 700);
+      }, 300);
+    }
+
+    const map = L.map('map', {
+      center: [22.7196, 75.8577],
+      zoom: 13,
+      zoomControl: false,
+    });
+
+    L.control.zoom({ position: 'bottomright' }).addTo(map);
+
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+      maxZoom: 19,
+      subdomains: 'abcd',
+    }).addTo(map);
+
+    map.once('load', dismissLoading);
+    setTimeout(dismissLoading, 1400);
+  </script>
+</body>
+</html>
