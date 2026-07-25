@@ -49,3 +49,10 @@ Thumbs.db
 eudora-hf/.git/
 
 indore.graphml
+
+# Temporary debug files & archives
+*_visualization.html
+*_signals.html
+*debug.html
+*.zip
+
