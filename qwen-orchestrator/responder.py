@@ -4,7 +4,15 @@ load_dotenv(dotenv_path="../.env")
 import httpx
 
 GROQ_RESPONDER_KEY = os.getenv("GROQ_RESPONDER_KEY") or os.getenv("GROQ_API_KEY")
-GROQ_MODEL = os.getenv("GROQ_MODEL", "gpt-oss-120b")
+_raw_responder_model = os.getenv("GROQ_MODEL", "openai/gpt-oss-120b")
+_responder_candidates = [_raw_responder_model]
+if _raw_responder_model == "gpt-oss-120b":
+    _responder_candidates.insert(0, "openai/gpt-oss-120b")
+elif _raw_responder_model == "openai/gpt-oss-120b":
+    _responder_candidates.append("gpt-oss-120b")
+
+_responder_candidates.extend(["llama-3.3-70b-versatile", "llama-3.1-8b-instant"])
+GROQ_MODELS = list(dict.fromkeys(_responder_candidates))
 
 
 def compress_results(tool_results: list) -> list:
@@ -166,80 +174,91 @@ def _fallback_summary(user_input: str, tool_results: list) -> str:
 
 
 async def generate_response(user_input: str, tool_results: list) -> str:
-    try:
-        if not GROQ_RESPONDER_KEY:
-            return _fallback_summary(user_input, tool_results)
-
-        compressed_results = compress_results(tool_results)
-        system_prompt = (
-            "You are EUDORA, a helpful, intelligent AI navigation assistant for Indore, India. "
-            "The user sent a message that may contain one or multiple requests (such as route navigation, weather conditions, nearby places like restaurants/petrol pumps, fuel cost, etc.). "
-            "Tools were executed and their outputs are provided in Tool results. "
-            "Synthesize all the tool results into a clear, natural, friendly, and conversational response (2-3 sentences) that directly answers EVERY part of the user's query. "
-            "Never mention tool names, status codes, or JSON. "
-            "If a route was generated, end your response by saying: say go or start navigation when you are ready to begin."
-        )
-        payload = {
-            "model": GROQ_MODEL,
-            "messages": [
-                {"role": "system", "content": system_prompt},
-                {
-                    "role": "user",
-                    "content": f"User asked: {user_input}\n\nTool results: {compressed_results}",
-                },
-            ],
-            "temperature": 0.7,
-            "max_tokens": 200,
-        }
-        headers = {
-            "Authorization": f"Bearer {GROQ_RESPONDER_KEY}",
-            "Content-Type": "application/json",
-        }
-
-        async with httpx.AsyncClient(timeout=10) as client:
-            response = await client.post(
-                "https://api.groq.com/openai/v1/chat/completions",
-                headers=headers,
-                json=payload,
-            )
-
-        if response.status_code == 200:
-            return response.json()["choices"][0]["message"]["content"]
-        else:
-            return _fallback_summary(user_input, tool_results)
-    except Exception as e:
-        print(f"Responder error: {e}")
+    if not GROQ_RESPONDER_KEY:
         return _fallback_summary(user_input, tool_results)
+
+    compressed_results = compress_results(tool_results)
+    system_prompt = (
+        "You are EUDORA, a helpful, intelligent AI navigation assistant for Indore, India. "
+        "The user sent a message that may contain one or multiple requests (such as route navigation, weather conditions, nearby places like restaurants/petrol pumps, fuel cost, etc.). "
+        "Tools were executed and their outputs are provided in Tool results. "
+        "Synthesize all the tool results into a clear, natural, friendly, and conversational response (2-3 sentences) that directly answers EVERY part of the user's query. "
+        "Never mention tool names, status codes, or JSON. "
+        "If a route was generated, end your response by saying: say go or start navigation when you are ready to begin."
+    )
+    headers = {
+        "Authorization": f"Bearer {GROQ_RESPONDER_KEY}",
+        "Content-Type": "application/json",
+    }
+
+    for model in GROQ_MODELS:
+        try:
+            payload = {
+                "model": model,
+                "messages": [
+                    {"role": "system", "content": system_prompt},
+                    {
+                        "role": "user",
+                        "content": f"User asked: {user_input}\n\nTool results: {compressed_results}",
+                    },
+                ],
+                "temperature": 0.7,
+                "max_tokens": 200,
+            }
+            async with httpx.AsyncClient(timeout=10) as client:
+                response = await client.post(
+                    "https://api.groq.com/openai/v1/chat/completions",
+                    headers=headers,
+                    json=payload,
+                )
+
+            if response.status_code == 200:
+                return response.json()["choices"][0]["message"]["content"]
+            else:
+                print(f"[Groq Responder] Model {model} status {response.status_code}: {response.text}")
+        except Exception as e:
+            print(f"[Groq Responder] Error with {model}: {e}")
+
+    return _fallback_summary(user_input, tool_results)
 
 
 async def chat(user_input: str) -> str:
-    try:
-        system_prompt = (
-            "You are EUDORA, a friendly AI assistant embedded in a navigation app for Indore, India. "
-            "You can talk about anything — movies, food, general knowledge, weather, travel tips. "
-            "Keep responses short, conversational, and under 3 sentences."
-        )
-        payload = {
-            "model": GROQ_MODEL,
-            "messages": [
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_input},
-            ],
-            "temperature": 0.9,
-            "max_tokens": 150,
-        }
-        headers = {
-            "Authorization": f"Bearer {GROQ_RESPONDER_KEY}",
-            "Content-Type": "application/json",
-        }
+    if not GROQ_RESPONDER_KEY:
+        return "I am EUDORA, your AI navigation assistant for Indore. How can I help you with your route today?"
 
-        async with httpx.AsyncClient(timeout=10) as client:
-            response = await client.post(
-                "https://api.groq.com/openai/v1/chat/completions",
-                headers=headers,
-                json=payload,
-            )
+    system_prompt = (
+        "You are EUDORA, a friendly AI assistant embedded in a navigation app for Indore, India. "
+        "You can talk about anything — movies, food, general knowledge, weather, travel tips. "
+        "Keep responses short, conversational, and under 3 sentences."
+    )
+    headers = {
+        "Authorization": f"Bearer {GROQ_RESPONDER_KEY}",
+        "Content-Type": "application/json",
+    }
 
-        return response.json()["choices"][0]["message"]["content"]
-    except Exception:
-        return "Sorry, I couldn't process that. Try again."
+    for model in GROQ_MODELS:
+        try:
+            payload = {
+                "model": model,
+                "messages": [
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_input},
+                ],
+                "temperature": 0.9,
+                "max_tokens": 150,
+            }
+            async with httpx.AsyncClient(timeout=10) as client:
+                response = await client.post(
+                    "https://api.groq.com/openai/v1/chat/completions",
+                    headers=headers,
+                    json=payload,
+                )
+
+            if response.status_code == 200:
+                return response.json()["choices"][0]["message"]["content"]
+            else:
+                print(f"[Groq Chat] Model {model} status {response.status_code}: {response.text}")
+        except Exception as e:
+            print(f"[Groq Chat] Error with {model}: {e}")
+
+    return "I am EUDORA, your AI navigation assistant for Indore. How can I help you with your route today?"

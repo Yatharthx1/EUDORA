@@ -3,7 +3,11 @@ import json
 import httpx
 
 CEREBRAS_API_KEY = os.getenv("CEREBRAS_API_KEY")
-CEREBRAS_MODEL = os.getenv("CEREBRAS_MODEL", "gpt-oss-120b")
+_raw_cerebras_model = os.getenv("CEREBRAS_MODEL", "llama3.1-70b")
+if _raw_cerebras_model == "gpt-oss-120b":
+    _raw_cerebras_model = "llama3.1-70b"
+
+CEREBRAS_MODELS = list(dict.fromkeys([_raw_cerebras_model, "llama3.1-70b", "llama-3.3-70b", "llama3.1-8b"]))
 
 
 def _parse_tool_calls(text: str) -> list[dict]:
@@ -29,8 +33,10 @@ def _parse_tool_calls(text: str) -> list[dict]:
 
 async def route_query_cerebras(user_input: str) -> list[dict]:
     """Ask Cerebras to convert a user routing request into EUDORA tool calls."""
-    try:
-        system_prompt = """You are a routing assistant for a navigation app called EUDORA that serves Indore, India.
+    if not CEREBRAS_API_KEY:
+        return []
+
+    system_prompt = """You are a routing assistant for a navigation app called EUDORA that serves Indore, India.
 Your only job is to return a JSON array of tool calls based on the user message.
 Do not explain anything. Do not add any text before or after the JSON array.
 
@@ -71,30 +77,39 @@ User: "What are some good movies to watch?"
 [{"tool": "chat", "args": {"message": "What are some good movies to watch?"}}]
 
 Return only the JSON array. Nothing else."""
-        messages = [
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_input},
-        ]
-        payload = {
-            "model": CEREBRAS_MODEL,
-            "messages": messages,
-            "max_tokens": 512,
-            "temperature": 0,
-        }
-        headers = {
-            "Authorization": f"Bearer {CEREBRAS_API_KEY}",
-            "Content-Type": "application/json",
-        }
 
-        async with httpx.AsyncClient(timeout=10) as client:
-            response = await client.post(
-                "https://api.cerebras.ai/v1/chat/completions",
-                headers=headers,
-                json=payload,
-            )
+    headers = {
+        "Authorization": f"Bearer {CEREBRAS_API_KEY}",
+        "Content-Type": "application/json",
+    }
+    messages = [
+        {"role": "system", "content": system_prompt},
+        {"role": "user", "content": user_input},
+    ]
 
-        response_text = response.json()["choices"][0]["message"]["content"]
-        return _parse_tool_calls(response_text)
-    except Exception as error:
-        print(error)
-        return []
+    for model in CEREBRAS_MODELS:
+        try:
+            payload = {
+                "model": model,
+                "messages": messages,
+                "max_tokens": 512,
+                "temperature": 0,
+            }
+            async with httpx.AsyncClient(timeout=10) as client:
+                response = await client.post(
+                    "https://api.cerebras.ai/v1/chat/completions",
+                    headers=headers,
+                    json=payload,
+                )
+
+            if response.status_code == 200:
+                response_text = response.json()["choices"][0]["message"]["content"]
+                parsed = _parse_tool_calls(response_text)
+                if parsed:
+                    return parsed
+            else:
+                print(f"[Cerebras] Model {model} returned status {response.status_code}: {response.text}")
+        except Exception as error:
+            print(f"[Cerebras] Error with model {model}: {error}")
+
+    return []

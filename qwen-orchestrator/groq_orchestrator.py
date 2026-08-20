@@ -3,7 +3,15 @@ import json
 import httpx
 
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
-GROQ_MODEL = os.getenv("GROQ_MODEL", "gpt-oss-120b")
+_raw_groq_model = os.getenv("GROQ_MODEL", "openai/gpt-oss-120b")
+_groq_candidates = [_raw_groq_model]
+if _raw_groq_model == "gpt-oss-120b":
+    _groq_candidates.insert(0, "openai/gpt-oss-120b")
+elif _raw_groq_model == "openai/gpt-oss-120b":
+    _groq_candidates.append("gpt-oss-120b")
+
+_groq_candidates.extend(["llama-3.3-70b-versatile", "llama-3.1-8b-instant", "llama3-70b-8192"])
+GROQ_MODELS = list(dict.fromkeys(_groq_candidates))
 
 
 def _parse_tool_calls(text: str) -> list[dict]:
@@ -29,8 +37,10 @@ def _parse_tool_calls(text: str) -> list[dict]:
 
 async def route_query_groq(user_input: str) -> list[dict]:
     """Ask Groq to convert a user routing request into EUDORA tool calls."""
-    try:
-        system_prompt = """You are a routing assistant for a navigation app called EUDORA that serves Indore, India.
+    if not GROQ_API_KEY:
+        return []
+
+    system_prompt = """You are a routing assistant for a navigation app called EUDORA that serves Indore, India.
 Your only job is to return a JSON array of tool calls based on the user message.
 Do not explain anything. Do not add any text before or after the JSON array.
 
@@ -71,30 +81,39 @@ User: "What are some good movies to watch?"
 [{"tool": "chat", "args": {"message": "What are some good movies to watch?"}}]
 
 Return only the JSON array. Nothing else."""
-        messages = [
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_input},
-        ]
-        payload = {
-            "model": GROQ_MODEL,
-            "messages": messages,
-            "max_tokens": 512,
-            "temperature": 0,
-        }
-        headers = {
-            "Authorization": f"Bearer {GROQ_API_KEY}",
-            "Content-Type": "application/json",
-        }
 
-        async with httpx.AsyncClient(timeout=10) as client:
-            response = await client.post(
-                "https://api.groq.com/openai/v1/chat/completions",
-                headers=headers,
-                json=payload,
-            )
+    headers = {
+        "Authorization": f"Bearer {GROQ_API_KEY}",
+        "Content-Type": "application/json",
+    }
+    messages = [
+        {"role": "system", "content": system_prompt},
+        {"role": "user", "content": user_input},
+    ]
 
-        response_text = response.json()["choices"][0]["message"]["content"]
-        return _parse_tool_calls(response_text)
-    except Exception as error:
-        print(error)
-        return []
+    for model in GROQ_MODELS:
+        try:
+            payload = {
+                "model": model,
+                "messages": messages,
+                "max_tokens": 512,
+                "temperature": 0,
+            }
+            async with httpx.AsyncClient(timeout=10) as client:
+                response = await client.post(
+                    "https://api.groq.com/openai/v1/chat/completions",
+                    headers=headers,
+                    json=payload,
+                )
+
+            if response.status_code == 200:
+                response_text = response.json()["choices"][0]["message"]["content"]
+                parsed = _parse_tool_calls(response_text)
+                if parsed:
+                    return parsed
+            else:
+                print(f"[Groq] Model {model} returned status {response.status_code}: {response.text}")
+        except Exception as error:
+            print(f"[Groq] Error with model {model}: {error}")
+
+    return []

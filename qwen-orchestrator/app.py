@@ -100,6 +100,46 @@ TOOLS = {
 }
 
 
+def route_query_heuristic(user_input: str) -> list[dict]:
+    """Rule-based heuristic orchestrator when all cloud LLMs fail or rate limit."""
+    text = user_input.strip()
+    text_lower = text.lower()
+    tool_calls = []
+
+    dest_match = re.search(
+        r"\b(?:take me to|navigate to|directions? to|route to|go to|drive to|lead me to|show me the way to|to)\s+([^.,?!;]+)",
+        text,
+        flags=re.IGNORECASE,
+    )
+    if dest_match:
+        place = dest_match.group(1).strip()
+        place = re.split(r"\b(?:and|plus|also|with|while|before|after)\b", place, flags=re.IGNORECASE)[0].strip()
+        if place and not _is_current_location_query(place):
+            tool_calls.append({"tool": "geocode", "args": {"query": _clean_place_query(place)}})
+
+    if any(w in text_lower for w in ("weather", "temp", "temperature", "rain", "forecast", "climate")):
+        tool_calls.append({"tool": "get_weather", "args": {}})
+
+    if any(f in text_lower for f in ("breakfast", "lunch", "dinner", "food", "restaurant", "eat", "cafe", "coffee")):
+        tool_calls.append({"tool": "get_nearby_places", "args": {"types": "restaurant", "radius": 3000}})
+    elif any(p in text_lower for p in ("petrol", "gas", "fuel station", "pump")):
+        tool_calls.append({"tool": "get_nearby_places", "args": {"types": "petrol_station", "radius": 3000}})
+    elif "atm" in text_lower:
+        tool_calls.append({"tool": "get_nearby_places", "args": {"types": "atm", "radius": 2000}})
+    elif "hospital" in text_lower or "doctor" in text_lower:
+        tool_calls.append({"tool": "get_nearby_places", "args": {"types": "hospital", "radius": 3000}})
+
+    if any(a in text_lower for a in ("air quality", "aqi", "pollution")):
+        tool_calls.append({"tool": "get_air_quality", "args": {}})
+
+    if "fuel" in text_lower and ("cost" in text_lower or "price" in text_lower or "how much" in text_lower):
+        km_match = re.search(r"(\d+(?:\.\d+)?)\s*km", text_lower)
+        dist = float(km_match.group(1)) if km_match else 10.0
+        tool_calls.append({"tool": "calculate_fuel_cost", "args": {"distance_km": dist}})
+
+    return tool_calls
+
+
 async def route_query_with_fallback(user_input: str) -> list[dict]:
     tool_calls = await route_query_groq(user_input)
     if tool_calls:
@@ -124,8 +164,8 @@ async def route_query_with_fallback(user_input: str) -> list[dict]:
         except Exception as exception:
             print(f"Qwen failed: {exception}")
 
-    print("All orchestrators failed")
-    return []
+    print("Cloud/Local orchestrators failed or rate limited; running heuristic fallback router...")
+    return route_query_heuristic(user_input)
 
 
 def is_navigation_confirmation(text: str) -> bool:
