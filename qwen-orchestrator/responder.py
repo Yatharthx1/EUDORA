@@ -4,7 +4,7 @@ load_dotenv(dotenv_path="../.env")
 import httpx
 
 GROQ_RESPONDER_KEY = os.getenv("GROQ_RESPONDER_KEY")
-GROQ_MODEL = "llama-3.3-70b-versatile"
+GROQ_MODEL = os.getenv("GROQ_MODEL", "gpt-oss-120b")
 
 
 def compress_results(tool_results: list) -> list:
