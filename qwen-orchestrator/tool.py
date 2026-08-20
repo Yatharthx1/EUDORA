@@ -61,8 +61,8 @@ async def health_check():
 
 
 async def get_nearby_places(
-    lat: float,
-    lon: float,
+    lat: float = 22.7196,
+    lon: float = 75.8577,
     types: str = "restaurant",
     radius: int = 5000,
 ):

@@ -61,9 +61,17 @@ Available tools:
 - calculate_fuel_cost: estimates fuel cost for a trip. args: {"distance_km": float, "fuel_price_per_litre": float, "mileage_kmpl": float}
 - chat: for any general conversation, questions about movies, food, sports, general knowledge, or anything not related to navigation. args: {"message": "user's message"}
 
+Rules:
+1. If the user message contains multiple requests (e.g. navigation destination + weather check + nearby food/breakfast + fuel cost), output tool calls for EVERY requested item in the JSON array.
+2. For routing to a place name, use `geocode` with the place name (e.g. "IPs academy, Indore").
+3. For finding food, breakfast, coffee, or restaurants, use `get_nearby_places` with `types`: "restaurant".
+
 Examples:
 User: "Route from Rajwada to Vijay Nagar"
 [{"tool": "geocode", "args": {"query": "Rajwada, Indore"}}, {"tool": "geocode", "args": {"query": "Vijay Nagar, Indore"}}, {"tool": "get_routes", "args": {"origin_lat": 22.7196, "origin_lon": 75.8577, "dest_lat": 22.7534, "dest_lon": 75.8937}}]
+
+User: "Take me to IPs academy and i want to know about the weather outside plus i want to have breakfast on the way"
+[{"tool": "geocode", "args": {"query": "IPs academy, Indore"}}, {"tool": "get_weather", "args": {}}, {"tool": "get_nearby_places", "args": {"types": "restaurant", "radius": 3000}}]
 
 User: "Find restaurants near me"
 [{"tool": "get_nearby_places", "args": {"lat": 22.7196, "lon": 75.8577, "types": "restaurant", "radius": 2000}}]

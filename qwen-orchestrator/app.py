@@ -203,6 +203,38 @@ def _has_explicit_origin(text: str) -> bool:
     return re.search(r"\bfrom\b.+\bto\b", text, flags=re.IGNORECASE) is not None
 
 
+def _is_multi_intent_query(text: str) -> bool:
+    """Check if text contains multiple intents or clauses beyond a simple single-destination route request."""
+    if re.search(r"[;?!]|\.\s+", text):
+        return True
+
+    text_lower = text.lower()
+
+    conjunction_patterns = (
+        r"\b(?:and|plus|also|with|while|before|after|then)\b",
+    )
+    for pattern in conjunction_patterns:
+        if re.search(pattern, text_lower):
+            return True
+
+    secondary_keywords = (
+        "weather", "temperature", "temp", "rain", "forecast",
+        "breakfast", "lunch", "dinner", "food", "restaurant", "eat", "cafe", "dining",
+        "petrol", "gas", "fuel", "atm", "hospital", "hotel",
+        "air quality", "aqi", "pollution",
+        "signals", "traffic",
+        "i want", "can i", "can you", "tell me", "how is", "what is", "where can", "check"
+    )
+    route_keywords = ("take me", "navigate", "directions", "route", "go to", "drive to", "lead me", "way to")
+    has_route = any(rk in text_lower for rk in route_keywords)
+    if has_route:
+        for kw in secondary_keywords:
+            if kw in text_lower:
+                return True
+
+    return False
+
+
 def _clean_place_query(place: str) -> str:
     cleaned = re.sub(r"\b(please|pls|now|right now)\b", " ", place, flags=re.IGNORECASE)
     cleaned = re.sub(r"\s+", " ", cleaned).strip(" .,!?")
@@ -212,6 +244,9 @@ def _clean_place_query(place: str) -> str:
 
 
 def _extract_direct_route_places(text: str) -> tuple[str | None, str] | None:
+    if _is_multi_intent_query(text):
+        return None
+
     text = re.sub(r"\s+", " ", text).strip()
     patterns_with_origin = (
         r"^(?:route|directions?|navigate|take me|drive|go)\s+from\s+(.+?)\s+to\s+(.+)$",
@@ -370,20 +405,30 @@ async def _execute_tool_call(tool_call: dict, skip_get_routes: bool = False) -> 
 
 
 def _with_current_location_args(tool_call: dict, request: QueryRequest) -> dict:
-    if request.current_location is None or not isinstance(tool_call, dict):
+    if not isinstance(tool_call, dict):
         return tool_call
 
     tool_name = tool_call.get("tool")
     args = tool_call.get("args")
-    if tool_name not in {"get_nearby_places", "get_weather", "get_air_quality"} or not isinstance(args, dict):
+    if tool_name not in {"get_nearby_places", "get_weather", "get_air_quality"}:
         return tool_call
 
+    if not isinstance(args, dict):
+        args = {}
+
     updated = dict(tool_call)
-    updated["args"] = {
-        **args,
-        "lat": request.current_location.lat,
-        "lon": request.current_location.lon,
-    }
+    new_args = dict(args)
+
+    if request.current_location is not None:
+        new_args["lat"] = request.current_location.lat
+        new_args["lon"] = request.current_location.lon
+    else:
+        if "lat" not in new_args or new_args["lat"] is None:
+            new_args["lat"] = 22.7196
+        if "lon" not in new_args or new_args["lon"] is None:
+            new_args["lon"] = 75.8577
+
+    updated["args"] = new_args
     return updated
 
 
