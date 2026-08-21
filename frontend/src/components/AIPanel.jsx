@@ -168,7 +168,8 @@ export function AIPanel() {
     setIsLoading(false);
 
     if (res) {
-      addChatMessage({ id: Date.now().toString(), role: "eudora", text: res.ai_response });
+      const aiText = res.ai_response || "I processed your request but couldn't generate a reply. Please try again.";
+      addChatMessage({ id: Date.now().toString(), role: "eudora", text: aiText });
 
       if (res.type === "navigation") {
         handleRouteData(res, true);

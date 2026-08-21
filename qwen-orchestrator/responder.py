@@ -213,7 +213,10 @@ async def generate_response(user_input: str, tool_results: list) -> str:
                 )
 
             if response.status_code == 200:
-                return response.json()["choices"][0]["message"]["content"]
+                content = response.json()["choices"][0]["message"]["content"]
+                if content and content.strip():
+                    return content
+                print(f"[Groq Responder] Model {model} returned empty content, trying next model")
             else:
                 print(f"[Groq Responder] Model {model} status {response.status_code}: {response.text}")
         except Exception as e:
@@ -255,7 +258,10 @@ async def chat(user_input: str) -> str:
                 )
 
             if response.status_code == 200:
-                return response.json()["choices"][0]["message"]["content"]
+                content = response.json()["choices"][0]["message"]["content"]
+                if content and content.strip():
+                    return content
+                print(f"[Groq Chat] Model {model} returned empty content, trying next model")
             else:
                 print(f"[Groq Chat] Model {model} status {response.status_code}: {response.text}")
         except Exception as e:
