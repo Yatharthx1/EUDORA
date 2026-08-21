@@ -203,7 +203,7 @@ async def generate_response(user_input: str, tool_results: list) -> str:
                     },
                 ],
                 "temperature": 0.7,
-                "max_tokens": 200,
+                "max_tokens": 512,
             }
             async with httpx.AsyncClient(timeout=10) as client:
                 response = await client.post(
@@ -213,10 +213,16 @@ async def generate_response(user_input: str, tool_results: list) -> str:
                 )
 
             if response.status_code == 200:
-                content = response.json()["choices"][0]["message"]["content"]
-                if content and content.strip():
+                data = response.json()
+                content = data["choices"][0]["message"]["content"]
+                finish_reason = data["choices"][0].get("finish_reason", "")
+                if not content or not content.strip():
+                    print(f"[Groq Responder] Model {model} returned empty content, trying next model")
+                elif finish_reason == "length":
+                    print(f"[Groq Responder] Model {model} response truncated (finish_reason=length), using fallback")
+                    return _fallback_summary(user_input, tool_results)
+                else:
                     return content
-                print(f"[Groq Responder] Model {model} returned empty content, trying next model")
             else:
                 print(f"[Groq Responder] Model {model} status {response.status_code}: {response.text}")
         except Exception as e:
