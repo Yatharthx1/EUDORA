@@ -15,7 +15,7 @@ jobs:
           fetch-depth: 0
           lfs: true
 
-      - name: Push to Hugging Face Space
+      - name: Deploy Backend to Hugging Face Space
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
         run: |
@@ -26,7 +26,7 @@ jobs:
 
           git checkout --orphan hf-deploy
           git reset
-          git add -A
-          git commit -m "Deploy from GitHub Actions (${{ github.sha }})"
+          git add backend data qwen-orchestrator Dockerfile requirements.txt main.py deploy_app.py indore.pkl indore.graphml README.md .gitattributes .gitignore .dockerignore .env.example
+          git commit -m "Deploy Backend to Hugging Face Space (${{ github.sha }})"
 
           git push --force https://theyath:$HF_TOKEN@huggingface.co/spaces/theyath/eudora hf-deploy:main
