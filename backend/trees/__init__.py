@@ -1,5 +1,3 @@
-"""Tree canopy detection and storage helpers for EUDORA route scoring."""
-
 from .canopy import canopy_coverage
 from .canopy import canopy_score_to_label
 from .gee_fetch import fetch_route_ndvi_array

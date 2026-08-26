@@ -1,9 +1,3 @@
-"""Backend-only production app for Hugging Face Spaces.
-
-This mounts the main EUDORA API and the AI orchestrator into one FastAPI app
-so HF only needs to expose port 7860. The frontend is deployed separately.
-"""
-
 from pathlib import Path
 import importlib.util
 import sys

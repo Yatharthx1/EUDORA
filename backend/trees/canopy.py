@@ -1,5 +1,3 @@
-"""Canopy coverage scoring from NDVI arrays."""
-
 import numpy as np
 
 

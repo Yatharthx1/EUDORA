@@ -1,5 +1,3 @@
-"""Qwen-powered routing orchestrator for EUDORA tool calls."""
-
 import json
 import shutil
 from pathlib import Path

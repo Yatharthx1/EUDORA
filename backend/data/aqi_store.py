@@ -1,18 +1,3 @@
-"""
-AQIStore
-========
-Manages historical AQI data in SQLite.
-
-Fetch priority:
-  1. If a historical average exists for (day_of_week, hour_slot) → use it
-  2. Else if live reading is fresh (< 2 hours old) → use cached live
-  3. Else → hit OWM API, store result, update historical average
-  4. If API fails → fall back to Indore seasonal default
-
-This means after a few days of running, the app makes near-zero
-live API calls — ideal for conserving free tier quota before a demo.
-"""
-
 import sqlite3
 import os
 import time

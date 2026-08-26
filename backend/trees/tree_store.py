@@ -1,5 +1,3 @@
-"""Persistence helpers for precomputed Indore road-segment canopy scores."""
-
 import json
 import os
 from pathlib import Path

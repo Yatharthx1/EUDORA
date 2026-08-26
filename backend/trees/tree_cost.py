@@ -1,5 +1,3 @@
-"""Tree-density costs for EUDORA route scoring."""
-
 from backend.trees.canopy import canopy_coverage
 from backend.trees.tree_store import get_canopy_score
 from backend.trees.tree_store import load_tree_store

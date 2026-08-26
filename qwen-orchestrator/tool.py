@@ -1,5 +1,3 @@
-"""Async wrapper functions for the local EUDORA navigation backend API."""
-
 import os
 
 import httpx

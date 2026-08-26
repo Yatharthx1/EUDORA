@@ -1,5 +1,6 @@
 from backend.routing.graph_builder import build_graph
 from backend.routing.routing_engine import weighted_directional_route
+from backend.routing.geometry import reconstruct_route_geometry
 from backend.signal.signal_model import SignalModel
 import osmnx as ox
 
@@ -16,7 +17,7 @@ def visualize_routes(G, fastest, least, realistic, signal_model,
     )
 
     def coords(route):
-        return [(G.nodes[n]["y"], G.nodes[n]["x"]) for n in route]
+        return [[c[1], c[0]] for c in reconstruct_route_geometry(G, route)]
 
     folium.PolyLine(coords(fastest), color="blue", weight=5).add_to(m)
     folium.PolyLine(coords(least), color="green", weight=5).add_to(m)

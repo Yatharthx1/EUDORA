@@ -1,30 +1,3 @@
-"""
-TrafficEnricher
-
-Queries TomTom Traffic Flow API every 3 hours for ~150 sample points
-on Indore's major roads and updates every graph edge via IDW.
-
-What TomTom drives
-------------------
-For each enriched edge (within 800m of a sample point):
-
-  base_time   ← length / IDW(freeFlowSpeed)   — no-congestion travel time
-  live_time   ← length / IDW(currentSpeed)    — actual travel time right now
-  traffic_factor ← base_volume × emission_factor(congestion)  — for pollution
-
-For unenriched edges (deep residential, service roads):
-  base_time   ← from graph_builder fallback speed table (unchanged)
-  live_time   ← not set (routing_engine falls back to base_time)
-
-Routing engine uses:
-  w_time × (live_time or base_time)
-
-So TomTom data directly affects both route selection and displayed time.
-
-Budget: 150 points × 8 refreshes/day = 1,200 req/day (of 2,500 free)
-Disk cache: restarts cost 0 API calls if cache < 3 hours old.
-"""
-
 from __future__ import annotations
 
 import asyncio

@@ -1,5 +1,3 @@
-"""FastAPI entrypoint for the EUDORA Qwen orchestrator."""
-
 import asyncio
 import inspect
 import os

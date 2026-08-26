@@ -1,18 +1,3 @@
-"""
-seed_aqi.py
-===========
-Pre-populates the AQI history DB with realistic Indore averages
-so the app never cold-starts and works well from day one.
-
-Based on:
-- Indore's typical AQI patterns (winter mornings worst, night best)
-- Rush hour peaks (8-10am, 5-8pm)
-- Weekend vs weekday differences
-
-Run once before launch:
-    python -m backend.data.seed_aqi
-"""
-
 import sys
 import os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))

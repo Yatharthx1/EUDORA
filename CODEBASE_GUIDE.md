@@ -139,6 +139,7 @@ Loads `main:app` and dynamically mounts the `qwen-orchestrator` FastAPI sub-appl
 
 ```
 backend/routing/
+├── geometry.py          (High-fidelity road geometry extraction, orientation, & GeoJSON reconstruction)
 ├── graph_builder.py     (Graph construction, sanitization, speed models, and caching)
 ├── routing_engine.py    (Directional state-space Dijkstra with predecessor map)
 └── traffic_enricher.py  (TomTom Traffic Flow live speeds & IDW spatial interpolation)
@@ -387,6 +388,7 @@ EUDORA/
 │   ├── pollution/
 │   │   └── pollution_model.py           -> PollutionModel v2, diurnal Gaussian, exposure math
 │   ├── routing/
+│   │   ├── geometry.py                  -> High-fidelity road geometry reconstruction & GeoJSON builder
 │   │   ├── graph_builder.py             -> Road network builder, speed assigner, pickle cache
 │   │   ├── routing_engine.py            -> Directional state-space Dijkstra, free left turns
 │   │   └── traffic_enricher.py          -> TomTom Flow API client & IDW spatial interpolator

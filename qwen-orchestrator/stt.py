@@ -1,5 +1,3 @@
-"""Speech-to-text helpers for EUDORA."""
-
 import os
 
 import httpx

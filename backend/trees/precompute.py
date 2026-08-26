@@ -1,4 +1,3 @@
-"""Offline precomputation of canopy scores for Indore road segments."""
 from dotenv import load_dotenv
 load_dotenv()
 import argparse

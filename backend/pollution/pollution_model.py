@@ -1,15 +1,3 @@
-"""
-PollutionModel v2
-
-Pollution exposure per edge:
-  exposure = traffic_volume * intersection_factor * signal_bonus
-             * time_multiplier * length_km
-
-AQI is fetched once for the city centre and used only as a light
-global scalar (0.85-1.2) on the final route summary score.
-It does not influence per-edge pathfinding weights.
-"""
-
 import math
 import os
 import datetime

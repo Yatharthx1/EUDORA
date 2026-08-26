@@ -1,5 +1,3 @@
-// navigation.js
-
 // Haversine formula to calculate distance between two coordinates in meters
 export function calculateDistance(lat1, lon1, lat2, lon2) {
   const R = 6371e3; // Earth radius in meters

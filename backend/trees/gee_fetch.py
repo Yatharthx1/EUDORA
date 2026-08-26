@@ -1,11 +1,3 @@
-"""Google Earth Engine helpers for route-corridor NDVI extraction.
-
-This module authenticates with Google Earth Engine using the standard
-OAuth flow, buffers a road route into a narrow corridor, fetches
-Sentinel-2 imagery for that corridor, computes NDVI, and returns the
-clipped result as a NumPy array.
-"""
-
 from __future__ import annotations
 
 import os

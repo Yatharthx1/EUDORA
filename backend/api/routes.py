@@ -5,6 +5,7 @@ import os
 
 from backend.routing.routing_engine import greenest_directional_route
 from backend.routing.routing_engine import weighted_directional_route
+from backend.routing.geometry import route_to_geojson
 
 logger = logging.getLogger(__name__)
 
@@ -24,21 +25,6 @@ limiter = Limiter(key_func=get_client_ip, enabled=not LOCAL_DEV)
 DISTANCE_BUDGET_FACTOR_SIGNAL     = 1.8
 DISTANCE_BUDGET_FACTOR_POLLUTION  = 1.8
 DISTANCE_BUDGET_FACTOR_OVERALL    = 1.5
-
-
-def route_to_geojson(G, route):
-    coordinates = [
-        [G.nodes[node]["x"], G.nodes[node]["y"]]
-        for node in route
-    ]
-    return {
-        "type": "Feature",
-        "geometry": {
-            "type": "LineString",
-            "coordinates": coordinates
-        },
-        "properties": {}
-    }
 
 
 def extract_signal_coords(G, route):
