@@ -19,5 +19,14 @@ jobs:
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
         run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
           git config lfs.allowincompletepush true
-          git push --force https://theyath:$HF_TOKEN@huggingface.co/spaces/theyath/eudora main:main
+          git lfs install
+
+          git checkout --orphan hf-deploy
+          git reset
+          git add -A
+          git commit -m "Deploy from GitHub Actions (${{ github.sha }})"
+
+          git push --force https://theyath:$HF_TOKEN@huggingface.co/spaces/theyath/eudora hf-deploy:main
